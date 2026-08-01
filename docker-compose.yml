@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: libertine
+    ports:
+      - "5434:5432"
+    volumes:
+      - libertine_pg_data:/var/lib/postgresql/data
+
+volumes:
+  libertine_pg_data:

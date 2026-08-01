@@ -1,0 +1,210 @@
+// Prisma schema for the "libertine" adult dating platform (independent project, no link to Jobber).
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SiteRole {
+  USER
+  ADMIN
+}
+
+// Account may be suspended by moderation without being fully deleted.
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum Gender {
+  HOMME
+  FEMME
+  COUPLE_HOMME_FEMME
+  COUPLE_HOMME_HOMME
+  COUPLE_FEMME_FEMME
+  TRANS
+  NON_BINAIRE
+  AUTRE
+}
+
+enum Orientation {
+  HETERO
+  HOMO
+  BI
+  CURIEUX
+  AUTRE
+}
+
+enum PhotoModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportReason {
+  FAUX_PROFIL
+  CONTENU_ILLEGAL
+  MINEUR_SUSPECTE
+  SOLLICITATION_COMMERCIALE
+  HARCELEMENT
+  AUTRE
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  ACTION_TAKEN
+  DISMISSED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  birthDate    DateTime
+  role         SiteRole      @default(USER)
+  status       AccountStatus @default(ACTIVE)
+
+  // RGPD: horodatage explicite du consentement CGU / confirmation de majorité au moment de l'inscription.
+  termsAcceptedAt DateTime
+  ageConfirmedAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile        Profile?
+  reportsFiled   Report[] @relation("ReportsFiled")
+  reportsAgainst Report[] @relation("ReportsAgainst")
+
+  @@map("users")
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  pseudo      String
+  gender      Gender
+  orientation Orientation
+  // Genres recherchés par ce profil (filtre de découverte)
+  seeking     Gender[]
+
+  city      String
+  region    String?
+  bio       String   @default("") @db.VarChar(1000)
+  interests String[] @default([])
+
+  visible      Boolean  @default(true)
+  lastActiveAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos         Photo[]
+  likesGiven     Like[]           @relation("LikesGiven")
+  likesReceived  Like[]           @relation("LikesReceived")
+  matchesAsA     Match[]          @relation("MatchProfileA")
+  matchesAsB     Match[]          @relation("MatchProfileB")
+  messages       Message[]
+  blocksMade     BlockedProfile[] @relation("BlocksMade")
+  blocksReceived BlockedProfile[] @relation("BlocksReceived")
+
+  @@map("profiles")
+}
+
+model Photo {
+  id               String                @id @default(cuid())
+  profileId        String
+  profile          Profile               @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url              String
+  isPrivate        Boolean               @default(false)
+  moderationStatus PhotoModerationStatus @default(PENDING)
+  position         Int                   @default(0)
+  createdAt        DateTime              @default(now())
+
+  @@map("photos")
+}
+
+model Like {
+  id            String   @id @default(cuid())
+  fromProfileId String
+  toProfileId   String
+  fromProfile   Profile  @relation("LikesGiven", fields: [fromProfileId], references: [id], onDelete: Cascade)
+  toProfile     Profile  @relation("LikesReceived", fields: [toProfileId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+
+  @@unique([fromProfileId, toProfileId])
+  @@map("likes")
+}
+
+model Match {
+  id         String   @id @default(cuid())
+  profileAId String
+  profileBId String
+  profileA   Profile  @relation("MatchProfileA", fields: [profileAId], references: [id], onDelete: Cascade)
+  profileB   Profile  @relation("MatchProfileB", fields: [profileBId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  conversation Conversation?
+
+  @@unique([profileAId, profileBId])
+  @@map("matches")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  matchId   String   @unique
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderProfileId String
+  senderProfile   Profile      @relation(fields: [senderProfileId], references: [id], onDelete: Cascade)
+  content         String       @db.VarChar(2000)
+  readAt          DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@map("messages")
+}
+
+model Report {
+  id             String       @id @default(cuid())
+  reporterUserId String
+  reporterUser   User         @relation("ReportsFiled", fields: [reporterUserId], references: [id], onDelete: Cascade)
+  targetUserId   String
+  targetUser     User         @relation("ReportsAgainst", fields: [targetUserId], references: [id], onDelete: Cascade)
+  reason         ReportReason
+  details        String?      @db.VarChar(1000)
+  status         ReportStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  reviewedAt     DateTime?
+
+  @@map("reports")
+}
+
+model BlockedProfile {
+  id               String   @id @default(cuid())
+  blockerProfileId String
+  blockedProfileId String
+  blockerProfile   Profile  @relation("BlocksMade", fields: [blockerProfileId], references: [id], onDelete: Cascade)
+  blockedProfile   Profile  @relation("BlocksReceived", fields: [blockedProfileId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@unique([blockerProfileId, blockedProfileId])
+  @@map("blocked_profiles")
+}
