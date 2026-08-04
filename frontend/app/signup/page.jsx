@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/AuthContext';
-import { apiFetch } from '../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS } from '../../lib/enums';
+import CityAutocomplete from '../../components/CityAutocomplete';
 
 const GENDERS = Object.keys(GENDER_LABELS);
 const ORIENTATIONS = Object.keys(ORIENTATION_LABELS);
@@ -12,7 +12,6 @@ const ORIENTATIONS = Object.keys(ORIENTATION_LABELS);
 export default function SignupPage() {
   const { signup } = useAuth();
   const router = useRouter();
-  const [cities, setCities] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,10 +26,6 @@ export default function SignupPage() {
     city: '',
     agreeTerms: false,
   });
-
-  useEffect(() => {
-    apiFetch('/api/browse/meta').then((d) => setCities(d.cities)).catch(() => {});
-  }, []);
 
   const toggleSeeking = (g) => {
     setForm((f) => ({
@@ -118,11 +113,8 @@ export default function SignupPage() {
 
         <div>
           <label className="text-sm text-neutral-400">Ville</label>
-          <input list="cities" className="input" required
-            value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-          <datalist id="cities">
-            {cities.map((c) => <option key={c.name} value={c.name} />)}
-          </datalist>
+          <CityAutocomplete required
+            value={form.city} onChange={(city) => setForm({ ...form, city })} />
         </div>
 
         <label className="flex items-start gap-2 text-sm text-neutral-400">

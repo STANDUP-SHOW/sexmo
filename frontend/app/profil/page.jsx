@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
 import { getCroppedImageBlob } from '../../lib/cropImage';
 import PhotoCropModal from '../../components/PhotoCropModal';
+import CityAutocomplete from '../../components/CityAutocomplete';
 
 const MAX_PHOTOS = 20;
 
@@ -106,7 +107,7 @@ export default function ProfilePage() {
         <h2 className="font-semibold">Informations</h2>
         <div>
           <label className="text-sm text-neutral-400">Ville</label>
-          <input className="input" value={city} onChange={(e) => setCity(e.target.value)} />
+          <CityAutocomplete value={city} onChange={setCity} />
         </div>
         <div>
           <label className="text-sm text-neutral-400">Bio</label>

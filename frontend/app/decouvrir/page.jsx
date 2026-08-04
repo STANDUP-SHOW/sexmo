@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
 import { GENDER_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
+import CityAutocomplete from '../../components/CityAutocomplete';
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
@@ -52,11 +53,10 @@ export default function DiscoverPage() {
       <h1 className="text-2xl font-bold mb-4">Découvrir</h1>
 
       <div className="flex flex-wrap gap-3 mb-6">
-        <input list="cities" className="input w-40" placeholder="Ville"
-          value={filters.city} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
-        <datalist id="cities">
-          {meta.cities.map((c) => <option key={c.name} value={c.name} />)}
-        </datalist>
+        <div className="w-40">
+          <CityAutocomplete className="input w-40" placeholder="Ville"
+            value={filters.city} onChange={(city) => setFilters({ ...filters, city })} />
+        </div>
 
         <select className="input w-48" value={filters.gender} onChange={(e) => setFilters({ ...filters, gender: e.target.value })}>
           <option value="">Tous profils</option>
