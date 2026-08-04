@@ -14,6 +14,10 @@ const likeRoutes = require('./routes/likes.routes');
 const messageRoutes = require('./routes/messages.routes');
 const reportRoutes = require('./routes/reports.routes');
 const adminRoutes = require('./routes/admin.routes');
+const aiRoutes = require('./routes/ai.routes');
+const pageRoutes = require('./routes/pages.routes');
+const testimonialRoutes = require('./routes/testimonials.routes');
+const settingsRoutes = require('./routes/settings.routes');
 
 const app = express();
 
@@ -35,6 +39,10 @@ app.use('/api/likes', likeRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/pages', pageRoutes);
+app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.use(errorHandler);
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/AuthContext';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, mediaUrl } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 
 export default function ConversationPage() {
@@ -11,7 +11,12 @@ export default function ConversationPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState([]);
+  const [otherProfile, setOtherProfile] = useState(null);
+  const [distanceKm, setDistanceKm] = useState(null);
   const [text, setText] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState('');
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -20,7 +25,11 @@ export default function ConversationPage() {
 
   useEffect(() => {
     if (!user) return;
-    apiFetch(`/api/messages/conversations/${conversationId}`).then((d) => setMessages(d.messages)).catch(() => {});
+    apiFetch(`/api/messages/conversations/${conversationId}`).then((d) => {
+      setMessages(d.messages);
+      setOtherProfile(d.otherProfile);
+      setDistanceKm(d.distanceKm);
+    }).catch(() => {});
 
     const socket = getSocket();
     socket.emit('conversation:join', conversationId);
@@ -50,10 +59,41 @@ export default function ConversationPage() {
       body: JSON.stringify({ content }),
     });
     setMessages((m) => (m.find((x) => x.id === message.id) ? m : [...m, message]));
+    setSuggestions([]);
+  };
+
+  const suggest = async () => {
+    setSuggesting(true);
+    setSuggestError('');
+    try {
+      const { suggestions } = await apiFetch('/api/ai/conversation-suggestions', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId }),
+      });
+      setSuggestions(suggestions);
+    } catch (err) {
+      setSuggestError(err.message);
+    } finally {
+      setSuggesting(false);
+    }
   };
 
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[70vh]">
+      {otherProfile && (
+        <div className="flex items-center gap-3 pb-3 mb-1 border-b border-neutral-800">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-800 shrink-0">
+            {otherProfile.photo && <img src={mediaUrl(otherProfile.photo)} alt="" className="w-full h-full object-cover" />}
+          </div>
+          <div>
+            <p className="font-medium">{otherProfile.pseudo}</p>
+            <p className="text-xs text-neutral-500">
+              {otherProfile.city}
+              {distanceKm != null && ` · à ~${distanceKm} km`}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto space-y-2 pb-4">
         {messages.map((m) => (
           <div key={m.id}
@@ -65,10 +105,28 @@ export default function ConversationPage() {
         ))}
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={send} className="flex gap-2 pt-2 border-t border-neutral-800">
-        <input className="input" placeholder="Votre message..." value={text} onChange={(e) => setText(e.target.value)} />
-        <button className="btn-primary">Envoyer</button>
-      </form>
+
+      <div className="pt-2 border-t border-neutral-800">
+        <button type="button" onClick={suggest} disabled={suggesting}
+          className="text-xs text-brand-400 hover:text-brand-300 disabled:opacity-50 mb-2">
+          {suggesting ? 'Génération...' : '✨ Suggestions IA'}
+        </button>
+        {suggestError && <p className="text-xs text-red-400 mb-2">{suggestError}</p>}
+        {suggestions.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {suggestions.map((s, i) => (
+              <button key={i} type="button" onClick={() => { setText(s); setSuggestions([]); }}
+                className="text-xs bg-neutral-800 hover:bg-neutral-700 rounded-lg px-3 py-1.5 text-left">
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+        <form onSubmit={send} className="flex gap-2">
+          <input className="input" placeholder="Votre message..." value={text} onChange={(e) => setText(e.target.value)} />
+          <button className="btn-primary">Envoyer</button>
+        </form>
+      </div>
     </div>
   );
 }

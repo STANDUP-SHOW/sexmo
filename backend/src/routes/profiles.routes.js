@@ -3,6 +3,10 @@ const { z } = require('zod');
 const prisma = require('../config/prisma');
 const { requireAuth, requireProfile } = require('../middleware/auth');
 const { computeAge } = require('../utils/age');
+const { computeReputation } = require('../utils/reputation');
+const { computeProfileQuality } = require('../utils/profileQuality');
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const router = express.Router();
 
@@ -44,6 +48,7 @@ function toPublicProfile(profile, ownerBirthDate) {
     interests: profile.interests,
     age: ownerBirthDate ? computeAge(ownerBirthDate) : null,
     lastActiveAt: profile.lastActiveAt,
+    memberSinceDays: Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / MS_PER_DAY),
     photos: (profile.photos || [])
       .filter((p) => p.moderationStatus === 'APPROVED')
       .sort((a, b) => a.position - b.position)
@@ -51,7 +56,18 @@ function toPublicProfile(profile, ownerBirthDate) {
   };
 }
 
-router.get('/:id', requireAuth, async (req, res, next) => {
+router.get('/me/quality', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const approvedPhotoCount = await prisma.photo.count({
+      where: { profileId: req.user.profile.id, moderationStatus: 'APPROVED' },
+    });
+    res.json(computeProfileQuality(req.user.profile, approvedPhotoCount));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const profile = await prisma.profile.findUnique({
       where: { id: req.params.id },
@@ -69,7 +85,9 @@ router.get('/:id', requireAuth, async (req, res, next) => {
     });
     if (blocked) return res.status(404).json({ error: 'Profil introuvable' });
 
-    res.json({ profile: toPublicProfile(profile, profile.user.birthDate) });
+    const reputation = await computeReputation(profile);
+
+    res.json({ profile: { ...toPublicProfile(profile, profile.user.birthDate), reputation } });
   } catch (err) {
     next(err);
   }

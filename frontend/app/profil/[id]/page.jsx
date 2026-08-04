@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS } from '../../../lib/enums';
+import { memberSinceLabel } from '../../../lib/format';
 
 const REPORT_REASONS = {
   FAUX_PROFIL: 'Faux profil',
@@ -71,6 +72,19 @@ export default function ProfileDetailPage() {
       <div>
         <h1 className="text-2xl font-bold">{profile.pseudo}, {profile.age ?? '—'}</h1>
         <p className="text-neutral-400">{profile.city} · {GENDER_LABELS[profile.gender]} · {ORIENTATION_LABELS[profile.orientation]}</p>
+
+        <div className="flex flex-wrap gap-2 mt-2">
+          {profile.memberSinceDays != null && (
+            <span className="text-xs bg-neutral-800 rounded-full px-2.5 py-1">{memberSinceLabel(profile.memberSinceDays)}</span>
+          )}
+          {profile.reputation?.responseRatePct != null && (
+            <span className="text-xs bg-neutral-800 rounded-full px-2.5 py-1">Taux de réponse : {profile.reputation.responseRatePct}%</span>
+          )}
+          {profile.reputation?.exemplary && (
+            <span className="text-xs bg-brand-600 rounded-full px-2.5 py-1">✓ Membre exemplaire</span>
+          )}
+        </div>
+
         {profile.bio && <p className="mt-3 text-neutral-200 whitespace-pre-line">{profile.bio}</p>}
       </div>
 

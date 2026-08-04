@@ -17,8 +17,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      router.push('/decouvrir');
+      const loggedInUser = await login(email, password);
+      router.push(loggedInUser.profile ? '/decouvrir' : '/admin');
     } catch (err) {
       setError(err.message);
     } finally {

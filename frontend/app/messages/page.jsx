@@ -33,7 +33,10 @@ export default function MessagesPage() {
               {c.otherProfile.photo && <img src={mediaUrl(c.otherProfile.photo)} alt="" className="w-full h-full object-cover" />}
             </div>
             <div className="min-w-0">
-              <p className="font-medium">{c.otherProfile.pseudo}</p>
+              <p className="font-medium">
+                {c.otherProfile.pseudo}
+                {c.distanceKm != null && <span className="text-xs text-neutral-500 font-normal"> · à ~{c.distanceKm} km</span>}
+              </p>
               <p className="text-xs text-neutral-500 truncate">{c.lastMessage?.content || 'Dites bonjour !'}</p>
             </div>
           </Link>

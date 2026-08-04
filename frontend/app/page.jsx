@@ -1,11 +1,20 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AgeGate from '../components/AgeGate';
 import { useAuth } from '../lib/AuthContext';
+import { useSettings } from '../lib/SettingsContext';
+import { apiFetch } from '../lib/api';
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { tagline } = useSettings();
+  const [testimonials, setTestimonials] = useState([]);
+
+  useEffect(() => {
+    apiFetch('/api/testimonials').then((d) => setTestimonials(d.testimonials.slice(0, 3))).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -16,8 +25,7 @@ export default function HomePage() {
           Rencontres <span className="text-brand-400">libertines</span> entre adultes consentants
         </h1>
         <p className="text-neutral-400 max-w-xl mx-auto">
-          Célibataires et couples ouverts d'esprit, partout en France. Créez votre profil,
-          ajoutez jusqu'à 20 photos, échangez en toute discrétion.
+          {tagline || "Célibataires et couples ouverts d'esprit, partout en France. Créez votre profil, ajoutez jusqu'à 20 photos, échangez en toute discrétion."}
         </p>
         <div className="flex justify-center gap-3">
           {user ? (
@@ -45,6 +53,24 @@ export default function HomePage() {
           <p className="text-sm text-neutral-400">Discutez uniquement après un match mutuel, en temps réel.</p>
         </div>
       </section>
+
+      {testimonials.length > 0 && (
+        <section className="py-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Ils en parlent</h2>
+            <Link href="/avis" className="text-sm text-brand-400 hover:text-brand-300">Voir tous les avis</Link>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {testimonials.map((t) => (
+              <div key={t.id} className="card">
+                <div className="text-yellow-400 text-sm">{'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)}</div>
+                <p className="text-sm text-neutral-300 mt-1">{t.content}</p>
+                <p className="text-xs text-neutral-500 mt-1">{t.authorPseudo}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

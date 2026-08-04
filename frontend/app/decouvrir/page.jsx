@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
 import { GENDER_LABELS } from '../../lib/enums';
+import { memberSinceLabel } from '../../lib/format';
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
@@ -26,8 +27,12 @@ export default function DiscoverPage() {
   const search = async () => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => v && params.set(k, v));
-    const { profiles } = await apiFetch(`/api/browse?${params.toString()}`);
-    setProfiles(profiles);
+    try {
+      const { profiles } = await apiFetch(`/api/browse?${params.toString()}`);
+      setProfiles(profiles);
+    } catch {
+      setProfiles([]);
+    }
   };
 
   useEffect(() => {
@@ -88,6 +93,9 @@ export default function DiscoverPage() {
             <div className="p-3">
               <p className="font-medium">{p.pseudo}, {p.age ?? '—'}</p>
               <p className="text-xs text-neutral-500">{p.city} · {GENDER_LABELS[p.gender]}</p>
+              {p.memberSinceDays != null && (
+                <p className="text-[11px] text-neutral-600">{memberSinceLabel(p.memberSinceDays)}</p>
+              )}
               <button onClick={() => like(p.id)} className="btn-secondary text-xs mt-2 w-full">J'aime</button>
             </div>
           </div>

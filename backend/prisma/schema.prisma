@@ -79,8 +79,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   profile        Profile?
-  reportsFiled   Report[] @relation("ReportsFiled")
-  reportsAgainst Report[] @relation("ReportsAgainst")
+  reportsFiled   Report[]      @relation("ReportsFiled")
+  reportsAgainst Report[]      @relation("ReportsAgainst")
+  comments       Comment[]
+  testimonials   Testimonial[]
 
   @@map("users")
 }
@@ -207,4 +209,63 @@ model BlockedProfile {
 
   @@unique([blockerProfileId, blockedProfileId])
   @@map("blocked_profiles")
+}
+
+// --- Back-office : pages de contenu, commentaires, avis, réglages du site ---
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Page {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  content   String   @db.Text
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments Comment[]
+
+  @@map("pages")
+}
+
+model Comment {
+  id           String           @id @default(cuid())
+  pageId       String
+  page         Page             @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  authorUserId String
+  authorUser   User             @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  content      String           @db.VarChar(1000)
+  status       ModerationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+
+  @@map("comments")
+}
+
+model Testimonial {
+  id           String           @id @default(cuid())
+  authorUserId String
+  authorUser   User             @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  rating       Int
+  content      String           @db.VarChar(1000)
+  status       ModerationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+
+  @@map("testimonials")
+}
+
+// Ligne unique (id fixe "singleton") : personnalisation graphique éditable
+// depuis le back-office sans redéploiement de code.
+model SiteSettings {
+  id        String   @id @default("singleton")
+  siteName  String   @default("LibertineConnect")
+  tagline   String   @default("Rencontres libertines entre adultes consentants")
+  logoUrl   String?
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
 }

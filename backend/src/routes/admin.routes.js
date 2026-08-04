@@ -1,11 +1,32 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const { z } = require('zod');
 const prisma = require('../config/prisma');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { getSettings } = require('./settings.routes');
 
 const router = express.Router();
 
 router.use(requireAuth, requireAdmin);
+
+const uploadDir = path.join(__dirname, '..', '..', process.env.UPLOAD_DIR || 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const logoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => cb(null, `logo-${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
+  }),
+  limits: { fileSize: 4 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.mimetype)) return cb(new Error('Format non supporté (jpeg, png, webp ou svg)'));
+    cb(null, true);
+  },
+});
 
 router.get('/photos/pending', async (req, res, next) => {
   try {
@@ -88,13 +109,176 @@ router.patch('/users/:id/status', async (req, res, next) => {
 
 router.get('/stats', async (req, res, next) => {
   try {
-    const [users, profiles, pendingPhotos, pendingReports] = await Promise.all([
+    const [users, profiles, pendingPhotos, pendingReports, pendingComments, pendingTestimonials] = await Promise.all([
       prisma.user.count(),
       prisma.profile.count(),
       prisma.photo.count({ where: { moderationStatus: 'PENDING' } }),
       prisma.report.count({ where: { status: 'PENDING' } }),
+      prisma.comment.count({ where: { status: 'PENDING' } }),
+      prisma.testimonial.count({ where: { status: 'PENDING' } }),
     ]);
-    res.json({ users, profiles, pendingPhotos, pendingReports });
+    res.json({ users, profiles, pendingPhotos, pendingReports, pendingComments, pendingTestimonials });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Pages (CMS) ---
+
+router.get('/pages', async (req, res, next) => {
+  try {
+    const pages = await prisma.page.findMany({ orderBy: { updatedAt: 'desc' } });
+    res.json({ pages });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const pageSchema = z.object({
+  slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Slug invalide (lettres minuscules, chiffres, tirets)'),
+  title: z.string().min(1).max(200),
+  content: z.string().min(1),
+  published: z.boolean().optional(),
+});
+
+router.post('/pages', async (req, res, next) => {
+  try {
+    const data = pageSchema.parse(req.body);
+    const page = await prisma.page.create({ data });
+    res.status(201).json({ page });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ce slug est déjà utilisé par une autre page.' });
+    next(err);
+  }
+});
+
+router.patch('/pages/:id', async (req, res, next) => {
+  try {
+    const data = pageSchema.partial().parse(req.body);
+    const page = await prisma.page.update({ where: { id: req.params.id }, data });
+    res.json({ page });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ce slug est déjà utilisé par une autre page.' });
+    next(err);
+  }
+});
+
+router.delete('/pages/:id', async (req, res, next) => {
+  try {
+    await prisma.page.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Commentaires ---
+
+router.get('/comments/pending', async (req, res, next) => {
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { status: 'PENDING' },
+      include: { page: { select: { title: true, slug: true } }, authorUser: { select: { email: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    res.json({ comments });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/comments/:id', async (req, res, next) => {
+  try {
+    const { status } = moderateSchema.parse(req.body);
+    const comment = await prisma.comment.update({ where: { id: req.params.id }, data: { status } });
+    res.json({ comment });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/comments/:id', async (req, res, next) => {
+  try {
+    await prisma.comment.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Avis / témoignages ---
+
+router.get('/testimonials/pending', async (req, res, next) => {
+  try {
+    const testimonials = await prisma.testimonial.findMany({
+      where: { status: 'PENDING' },
+      include: { authorUser: { select: { email: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    res.json({ testimonials });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/testimonials/:id', async (req, res, next) => {
+  try {
+    const { status } = moderateSchema.parse(req.body);
+    const testimonial = await prisma.testimonial.update({ where: { id: req.params.id }, data: { status } });
+    res.json({ testimonial });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/testimonials/:id', async (req, res, next) => {
+  try {
+    await prisma.testimonial.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Réglages du site (nom, slogan, logo) ---
+
+const settingsSchema = z.object({
+  siteName: z.string().min(1).max(60).optional(),
+  tagline: z.string().min(1).max(200).optional(),
+});
+
+router.patch('/settings', async (req, res, next) => {
+  try {
+    const data = settingsSchema.parse(req.body);
+    const settings = await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      update: data,
+      create: { id: 'singleton', ...data },
+    });
+    res.json({ settings });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/settings/logo', logoUpload.single('logo'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+    const previous = await getSettings();
+    const settings = await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      update: { logoUrl: `/uploads/${req.file.filename}` },
+      create: { id: 'singleton', logoUrl: `/uploads/${req.file.filename}` },
+    });
+
+    if (previous.logoUrl) {
+      fs.unlink(path.join(uploadDir, path.basename(previous.logoUrl)), () => {});
+    }
+
+    res.json({ settings });
   } catch (err) {
     next(err);
   }
