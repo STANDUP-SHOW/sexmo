@@ -45,6 +45,7 @@ async function generateConversationSuggestions({ myProfile, otherProfile, recent
       ],
     });
   } catch (apiErr) {
+    console.error('Anthropic API error in generateConversationSuggestions:', apiErr?.status, apiErr?.message, apiErr?.error);
     const err = new Error("La suggestion IA a échoué, réessayez dans un instant.");
     err.status = 502;
     err.expose = true;
