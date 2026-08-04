@@ -104,7 +104,7 @@ export default function SignupPage() {
             {GENDERS.map((g) => (
               <button type="button" key={g}
                 onClick={() => toggleSeeking(g)}
-                className={`text-xs rounded-full px-3 py-1.5 border ${form.seeking.includes(g) ? 'bg-brand-600 border-brand-600' : 'border-neutral-700 text-neutral-400'}`}>
+                className={`text-xs rounded-full px-3 py-1.5 border ${form.seeking.includes(g) ? 'bg-brand-600 border-brand-600 text-white' : 'border-neutral-300 text-neutral-600'}`}>
                 {GENDER_LABELS[g]}
               </button>
             ))}
@@ -124,7 +124,7 @@ export default function SignupPage() {
           caractère commercial est interdite sur ce site.</span>
         </label>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button className="btn-primary w-full" disabled={loading}>
           {loading ? 'Création...' : 'Créer mon profil'}

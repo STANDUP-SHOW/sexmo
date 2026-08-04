@@ -28,7 +28,7 @@ export default function TestimonialsTab() {
       {testimonials.map((t) => (
         <div key={t.id} className="card">
           <div className="text-yellow-400 text-sm">{'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)}</div>
-          <p className="text-sm text-neutral-200 mt-1">{t.content}</p>
+          <p className="text-sm text-neutral-800 mt-1">{t.content}</p>
           <p className="text-xs text-neutral-500 mt-1">{t.authorUser.email}</p>
           <div className="flex gap-2 mt-3">
             <button className="btn-primary text-xs" onClick={() => moderate(t.id, 'APPROVED')}>Valider</button>

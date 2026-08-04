@@ -81,8 +81,8 @@ export default function ConversationPage() {
   return (
     <div className="max-w-xl mx-auto flex flex-col h-[70vh]">
       {otherProfile && (
-        <div className="flex items-center gap-3 pb-3 mb-1 border-b border-neutral-800">
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-800 shrink-0">
+        <div className="flex items-center gap-3 pb-3 mb-1 border-b border-neutral-200">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-200 shrink-0">
             {otherProfile.photo && <img src={mediaUrl(otherProfile.photo)} alt="" className="w-full h-full object-cover" />}
           </div>
           <div>
@@ -98,7 +98,7 @@ export default function ConversationPage() {
         {messages.map((m) => (
           <div key={m.id}
             className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-              m.senderProfileId === user.profile.id ? 'bg-brand-600 ml-auto' : 'bg-neutral-800'
+              m.senderProfileId === user.profile.id ? 'bg-brand-600 text-white ml-auto' : 'bg-neutral-100 text-neutral-900'
             }`}>
             {m.content}
           </div>
@@ -106,17 +106,17 @@ export default function ConversationPage() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="pt-2 border-t border-neutral-800">
+      <div className="pt-2 border-t border-neutral-200">
         <button type="button" onClick={suggest} disabled={suggesting}
-          className="text-xs text-brand-400 hover:text-brand-300 disabled:opacity-50 mb-2">
+          className="text-xs text-brand-600 hover:text-brand-700 disabled:opacity-50 mb-2">
           {suggesting ? 'Génération...' : '✨ Suggestions IA'}
         </button>
-        {suggestError && <p className="text-xs text-red-400 mb-2">{suggestError}</p>}
+        {suggestError && <p className="text-xs text-red-600 mb-2">{suggestError}</p>}
         {suggestions.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {suggestions.map((s, i) => (
               <button key={i} type="button" onClick={() => { setText(s); setSuggestions([]); }}
-                className="text-xs bg-neutral-800 hover:bg-neutral-700 rounded-lg px-3 py-1.5 text-left">
+                className="text-xs bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg px-3 py-1.5 text-left">
                 {s}
               </button>
             ))}

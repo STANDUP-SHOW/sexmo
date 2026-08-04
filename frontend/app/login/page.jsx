@@ -38,7 +38,7 @@ export default function LoginPage() {
           <label className="text-sm text-neutral-400">Mot de passe</label>
           <input type="password" className="input" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <button className="btn-primary w-full" disabled={loading}>{loading ? 'Connexion...' : 'Se connecter'}</button>
       </form>
     </div>

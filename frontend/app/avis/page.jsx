@@ -52,8 +52,8 @@ export default function AvisPage() {
           <textarea className="input" rows={3} maxLength={1000} placeholder="Votre avis sur le site..."
             value={content} onChange={(e) => setContent(e.target.value)} />
           <button className="btn-primary text-sm">Envoyer</button>
-          {notice && <p className="text-xs text-green-400">{notice}</p>}
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {notice && <p className="text-xs text-green-600">{notice}</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
         </form>
       )}
 
@@ -61,7 +61,7 @@ export default function AvisPage() {
         {testimonials.map((t) => (
           <div key={t.id} className="card">
             <div className="text-yellow-400 text-sm">{'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)}</div>
-            <p className="text-sm text-neutral-200 mt-1">{t.content}</p>
+            <p className="text-sm text-neutral-800 mt-1">{t.content}</p>
             <p className="text-xs text-neutral-500 mt-1">{t.authorPseudo}</p>
           </div>
         ))}

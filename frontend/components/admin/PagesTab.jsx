@@ -65,7 +65,7 @@ export default function PagesTab() {
             <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
             Publiée
           </label>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button className="btn-primary text-sm">{form.id ? 'Enregistrer' : 'Créer'}</button>
             {form.id && <button type="button" className="btn-secondary text-sm" onClick={reset}>Annuler</button>}

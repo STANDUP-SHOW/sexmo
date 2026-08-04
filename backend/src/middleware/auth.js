@@ -4,7 +4,10 @@ const { verifyToken } = require('../utils/jwt');
 async function requireAuth(req, res, next) {
   try {
     const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    // Le token peut aussi venir en paramètre d'URL (?token=...) : nécessaire
+    // pour /media/*, chargé par de simples balises <img>/<video> qui ne
+    // peuvent pas envoyer d'en-tête Authorization.
+    const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token || null;
     if (!token) return res.status(401).json({ error: 'Non authentifié' });
 
     const payload = verifyToken(token);

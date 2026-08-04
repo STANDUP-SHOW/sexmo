@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { z } = require('zod');
 const prisma = require('../config/prisma');
-const { signToken } = require('../utils/jwt');
+const { signToken, signMediaToken } = require('../utils/jwt');
 const { computeAge, MIN_AGE } = require('../utils/age');
 const { requireAuth } = require('../middleware/auth');
 
@@ -61,8 +61,9 @@ router.post('/signup', async (req, res, next) => {
     });
 
     const token = signToken({ userId: user.id });
+    const mediaToken = signMediaToken(user.id);
     const { passwordHash: _omit, ...safeUser } = user;
-    res.status(201).json({ token, user: safeUser });
+    res.status(201).json({ token, mediaToken, user: safeUser });
   } catch (err) {
     next(err);
   }
@@ -86,8 +87,9 @@ router.post('/login', async (req, res, next) => {
     if (user.status === 'SUSPENDED') return res.status(403).json({ error: 'Compte suspendu' });
 
     const token = signToken({ userId: user.id });
+    const mediaToken = signMediaToken(user.id);
     const { passwordHash: _omit, ...safeUser } = user;
-    res.json({ token, user: safeUser });
+    res.json({ token, mediaToken, user: safeUser });
   } catch (err) {
     next(err);
   }
@@ -95,7 +97,7 @@ router.post('/login', async (req, res, next) => {
 
 router.get('/me', requireAuth, async (req, res) => {
   const { passwordHash: _omit, ...safeUser } = req.user;
-  res.json({ user: safeUser });
+  res.json({ user: safeUser, mediaToken: signMediaToken(req.user.id) });
 });
 
 module.exports = router;

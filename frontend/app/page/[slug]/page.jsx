@@ -41,21 +41,21 @@ export default function CmsPage() {
     }
   };
 
-  if (error) return <p className="text-red-400">{error}</p>;
+  if (error) return <p className="text-red-600">{error}</p>;
   if (!page) return <p className="text-neutral-500">Chargement...</p>;
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold mb-4">{page.title}</h1>
-        <div className="text-neutral-300 whitespace-pre-line">{page.content}</div>
+        <div className="text-neutral-800 whitespace-pre-line">{page.content}</div>
       </div>
 
       <section className="space-y-4">
         <h2 className="font-semibold">Commentaires</h2>
         {comments.map((c) => (
           <div key={c.id} className="card">
-            <p className="text-sm text-neutral-200">{c.content}</p>
+            <p className="text-sm text-neutral-800">{c.content}</p>
             <p className="text-xs text-neutral-500 mt-1">{c.authorPseudo}</p>
           </div>
         ))}
@@ -66,7 +66,7 @@ export default function CmsPage() {
             <textarea className="input" rows={3} maxLength={1000} placeholder="Votre commentaire..."
               value={commentText} onChange={(e) => setCommentText(e.target.value)} />
             <button className="btn-primary text-sm">Envoyer</button>
-            {notice && <p className="text-xs text-green-400">{notice}</p>}
+            {notice && <p className="text-xs text-green-600">{notice}</p>}
           </form>
         ) : (
           <p className="text-sm text-neutral-500">Connectez-vous pour laisser un commentaire.</p>

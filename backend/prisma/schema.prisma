@@ -63,6 +63,18 @@ enum ReportStatus {
   DISMISSED
 }
 
+// Qui peut voir les photos privées d'un profil sans demande préalable.
+enum PrivatePhotosAccess {
+  EVERYONE
+  ON_REQUEST
+}
+
+enum AccessGrantStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
@@ -106,17 +118,23 @@ model Profile {
   visible      Boolean  @default(true)
   lastActiveAt DateTime @default(now())
 
+  // Politique d'accès aux photos privées de ce profil (voir PhotoAccessGrant).
+  privatePhotosAccess PrivatePhotosAccess @default(ON_REQUEST)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  photos         Photo[]
-  likesGiven     Like[]           @relation("LikesGiven")
-  likesReceived  Like[]           @relation("LikesReceived")
-  matchesAsA     Match[]          @relation("MatchProfileA")
-  matchesAsB     Match[]          @relation("MatchProfileB")
-  messages       Message[]
-  blocksMade     BlockedProfile[] @relation("BlocksMade")
-  blocksReceived BlockedProfile[] @relation("BlocksReceived")
+  photos                Photo[]
+  videos                Video[]
+  likesGiven            Like[]             @relation("LikesGiven")
+  likesReceived         Like[]             @relation("LikesReceived")
+  matchesAsA            Match[]            @relation("MatchProfileA")
+  matchesAsB            Match[]            @relation("MatchProfileB")
+  messages              Message[]
+  blocksMade            BlockedProfile[]   @relation("BlocksMade")
+  blocksReceived        BlockedProfile[]   @relation("BlocksReceived")
+  accessGrantsOwned     PhotoAccessGrant[] @relation("AccessGrantOwner")
+  accessGrantsRequested PhotoAccessGrant[] @relation("AccessGrantRequester")
 
   @@map("profiles")
 }
@@ -132,6 +150,35 @@ model Photo {
   createdAt        DateTime              @default(now())
 
   @@map("photos")
+}
+
+model Video {
+  id               String           @id @default(cuid())
+  profileId        String
+  profile          Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url              String
+  moderationStatus ModerationStatus @default(PENDING)
+  position         Int              @default(0)
+  createdAt        DateTime         @default(now())
+
+  @@map("videos")
+}
+
+// Autorisation d'un profil ("owner") à voir les photos privées d'un autre
+// ("requester") — une ligne par paire, valable pour tout l'album privé du
+// owner (pas photo par photo). Ignoré si owner.privatePhotosAccess = EVERYONE.
+model PhotoAccessGrant {
+  id                 String            @id @default(cuid())
+  ownerProfileId     String
+  ownerProfile       Profile           @relation("AccessGrantOwner", fields: [ownerProfileId], references: [id], onDelete: Cascade)
+  requesterProfileId String
+  requesterProfile   Profile           @relation("AccessGrantRequester", fields: [requesterProfileId], references: [id], onDelete: Cascade)
+  status             AccessGrantStatus @default(PENDING)
+  createdAt          DateTime          @default(now())
+  respondedAt        DateTime?
+
+  @@unique([ownerProfileId, requesterProfileId])
+  @@map("photo_access_grants")
 }
 
 model Like {

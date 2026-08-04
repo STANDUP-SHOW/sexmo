@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { apiFetch, setToken, getToken } from './api';
+import { apiFetch, setToken, getToken, setMediaToken } from './api';
 
 const AuthContext = createContext(null);
 
@@ -16,23 +16,31 @@ export function AuthProvider({ children }) {
       return;
     }
     try {
-      const { user } = await apiFetch('/api/auth/me');
+      const { user, mediaToken } = await apiFetch('/api/auth/me');
+      setMediaToken(mediaToken);
       setUser(user);
     } catch {
       setToken(null);
+      setMediaToken(null);
       setUser(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Le jeton média expire au bout de 24h — le rafraîchir périodiquement pour
+  // une session ouverte plus longtemps évite que les photos cessent de
+  // charger sans que l'utilisateur ait besoin de se reconnecter.
   useEffect(() => {
     refresh();
+    const interval = setInterval(refresh, 12 * 60 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [refresh]);
 
   const login = async (email, password) => {
     const data = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
     setToken(data.token);
+    setMediaToken(data.mediaToken);
     setUser(data.user);
     return data.user;
   };
@@ -40,12 +48,14 @@ export function AuthProvider({ children }) {
   const signup = async (payload) => {
     const data = await apiFetch('/api/auth/signup', { method: 'POST', body: JSON.stringify(payload) });
     setToken(data.token);
+    setMediaToken(data.mediaToken);
     setUser(data.user);
     return data.user;
   };
 
   const logout = () => {
     setToken(null);
+    setMediaToken(null);
     setUser(null);
   };
 

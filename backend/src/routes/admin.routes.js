@@ -54,6 +54,30 @@ router.patch('/photos/:id', async (req, res, next) => {
   }
 });
 
+router.get('/videos/pending', async (req, res, next) => {
+  try {
+    const videos = await prisma.video.findMany({
+      where: { moderationStatus: 'PENDING' },
+      include: { profile: { select: { pseudo: true, id: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    res.json({ videos });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/videos/:id', async (req, res, next) => {
+  try {
+    const { status } = moderateSchema.parse(req.body);
+    const video = await prisma.video.update({ where: { id: req.params.id }, data: { moderationStatus: status } });
+    res.json({ video });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/reports', async (req, res, next) => {
   try {
     const status = req.query.status || 'PENDING';
@@ -109,15 +133,16 @@ router.patch('/users/:id/status', async (req, res, next) => {
 
 router.get('/stats', async (req, res, next) => {
   try {
-    const [users, profiles, pendingPhotos, pendingReports, pendingComments, pendingTestimonials] = await Promise.all([
+    const [users, profiles, pendingPhotos, pendingVideos, pendingReports, pendingComments, pendingTestimonials] = await Promise.all([
       prisma.user.count(),
       prisma.profile.count(),
       prisma.photo.count({ where: { moderationStatus: 'PENDING' } }),
+      prisma.video.count({ where: { moderationStatus: 'PENDING' } }),
       prisma.report.count({ where: { status: 'PENDING' } }),
       prisma.comment.count({ where: { status: 'PENDING' } }),
       prisma.testimonial.count({ where: { status: 'PENDING' } }),
     ]);
-    res.json({ users, profiles, pendingPhotos, pendingReports, pendingComments, pendingTestimonials });
+    res.json({ users, profiles, pendingPhotos, pendingVideos, pendingReports, pendingComments, pendingTestimonials });
   } catch (err) {
     next(err);
   }

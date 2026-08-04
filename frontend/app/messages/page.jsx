@@ -29,7 +29,7 @@ export default function MessagesPage() {
         {conversations.map((c) => (
           <Link key={c.conversationId} href={`/messages/${c.conversationId}`}
             className="card flex items-center gap-3 hover:border-brand-600 transition">
-            <div className="w-12 h-12 rounded-full overflow-hidden bg-neutral-800 shrink-0">
+            <div className="w-12 h-12 rounded-full overflow-hidden bg-neutral-200 shrink-0">
               {c.otherProfile.photo && <img src={mediaUrl(c.otherProfile.photo)} alt="" className="w-full h-full object-cover" />}
             </div>
             <div className="min-w-0">

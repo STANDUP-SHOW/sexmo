@@ -57,7 +57,7 @@ export default function SettingsTab() {
       <h2 className="font-semibold">Personnalisation du site</h2>
 
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-lg bg-neutral-800 overflow-hidden flex items-center justify-center">
+        <div className="w-16 h-16 rounded-lg bg-neutral-100 overflow-hidden flex items-center justify-center">
           {logoUrl ? <img src={mediaUrl(logoUrl)} alt="" className="w-full h-full object-cover" /> : <span className="text-xs text-neutral-600">Logo</span>}
         </div>
         <label className="btn-secondary text-sm cursor-pointer">
@@ -77,10 +77,10 @@ export default function SettingsTab() {
           <label className="text-sm text-neutral-400">Slogan (affiché en page d'accueil)</label>
           <input className="input" maxLength={200} value={tagline} onChange={(e) => setTagline(e.target.value)} />
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex items-center gap-3">
           <button className="btn-primary text-sm">Enregistrer</button>
-          {saved && <span className="text-sm text-green-400">Enregistré</span>}
+          {saved && <span className="text-sm text-green-600">Enregistré</span>}
         </div>
       </form>
     </section>

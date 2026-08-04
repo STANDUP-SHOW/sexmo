@@ -18,6 +18,9 @@ const aiRoutes = require('./routes/ai.routes');
 const pageRoutes = require('./routes/pages.routes');
 const testimonialRoutes = require('./routes/testimonials.routes');
 const settingsRoutes = require('./routes/settings.routes');
+const mediaRoutes = require('./routes/media.routes');
+const photoAccessRoutes = require('./routes/photoAccess.routes');
+const videoRoutes = require('./routes/videos.routes');
 
 const app = express();
 
@@ -25,8 +28,8 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3100', crede
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
-// Photos servies statiquement (stockage local pour ce MVP ; utiliser un
-// bucket S3/CDN en production avec URLs signées si des photos privées existent).
+// Stockage local uniquement pour le logo du site (asset admin unique, faible
+// volume) — les photos/vidéos des membres vivent sur le FTP (voir /media).
 app.use('/uploads', express.static(path.join(__dirname, '..', process.env.UPLOAD_DIR || 'uploads')));
 
 app.get('/health', (req, res) => res.json({ ok: true }));
@@ -43,6 +46,9 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/pages', pageRoutes);
 app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/media', mediaRoutes);
+app.use('/api/photo-access', photoAccessRoutes);
+app.use('/api/videos', videoRoutes);
 
 app.use(errorHandler);
 

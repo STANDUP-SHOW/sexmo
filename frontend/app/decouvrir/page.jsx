@@ -82,7 +82,7 @@ export default function DiscoverPage() {
         {profiles.map((p) => (
           <div key={p.id} className="card p-0 overflow-hidden">
             <Link href={`/profil/${p.id}`}>
-              <div className="aspect-[3/4] bg-neutral-800">
+              <div className="aspect-[3/4] bg-neutral-200">
                 {p.photos[0] ? (
                   <img src={mediaUrl(p.photos[0].url)} alt="" className="w-full h-full object-cover" />
                 ) : (

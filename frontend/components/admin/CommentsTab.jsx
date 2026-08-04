@@ -27,7 +27,7 @@ export default function CommentsTab() {
       <h2 className="font-semibold mb-2">Commentaires en attente</h2>
       {comments.map((c) => (
         <div key={c.id} className="card">
-          <p className="text-sm text-neutral-200">{c.content}</p>
+          <p className="text-sm text-neutral-800">{c.content}</p>
           <p className="text-xs text-neutral-500 mt-1">
             {c.authorUser.email} · sur "{c.page.title}"
           </p>

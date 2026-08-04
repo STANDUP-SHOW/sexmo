@@ -16,7 +16,7 @@ export default function AgeGate() {
     <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center px-4">
       <div className="card max-w-md w-full text-center space-y-4">
         <h2 className="text-xl font-bold">Contenu réservé aux adultes</h2>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-neutral-600">
           Ce site propose un service de mise en relation entre adultes consentants et peut
           afficher du contenu à caractère explicite. L'accès est strictement réservé aux
           personnes majeures (18 ans et plus).
