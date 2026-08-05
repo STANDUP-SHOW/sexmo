@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
@@ -250,6 +251,10 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
+      <Link href={`/profil/${user.profile?.id}`} className="btn-primary w-full text-center block">
+        Voir mon profil public
+      </Link>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Mon profil</h1>
