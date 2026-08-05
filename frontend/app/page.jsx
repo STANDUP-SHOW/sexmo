@@ -49,19 +49,8 @@ export default function HomePage() {
         <p className="text-sm text-neutral-600">Accès total à toutes les fonctionnalités.</p>
       </section>
 
-      <section className="grid sm:grid-cols-3 gap-4 py-8">
-        <div className="card">
-          <h3 className="font-semibold mb-1">Profils vérifiés</h3>
-          <p className="text-sm text-neutral-400">Photos modérées avant publication, signalement en un clic.</p>
-        </div>
-        <div className="card">
-          <h3 className="font-semibold mb-1">Partout en France</h3>
-          <p className="text-sm text-neutral-400">Filtrez par ville, du plus grand nombre de grandes villes aux régions.</p>
-        </div>
-        <div className="card">
-          <h3 className="font-semibold mb-1">Messagerie privée</h3>
-          <p className="text-sm text-neutral-400">Discutez en temps réel avec les connectés.</p>
-        </div>
+      <section className="text-center py-8">
+        <p className="text-lg font-semibold text-neutral-900">Profils sans filtres, ouvert à tous, dans le respect de la communauté Sexmo</p>
       </section>
 
       <section className="bg-brand-500 rounded-xl text-center py-10 px-4 space-y-4">
