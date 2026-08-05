@@ -47,3 +47,10 @@ export const EXPERIENCE_LEVEL_LABELS = {
   EXPERIMENTE: '🔥 Expérimenté',
   EXPERT: '👑 Expert',
 };
+
+export const EXPERIENCE_LEVEL_EMOJI = {
+  DEBUTANT: '🌱',
+  AMATEUR: '😊',
+  EXPERIMENTE: '🔥',
+  EXPERT: '👑',
+};

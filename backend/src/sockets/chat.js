@@ -9,6 +9,11 @@
 // avant même de rejoindre un salon). Un membre est identifié dès la
 // connexion (jeton). Un invité doit d'abord envoyer chat:identify
 // (pseudo + genre) avant de pouvoir rejoindre un salon ou écrire.
+//
+// Discussions privées ("bulles") : cliquer sur un connecté du salon ouvre
+// un fil à deux, en mémoire uniquement (pas d'historique) — jusqu'à 25 par
+// personne, fermé automatiquement si le destinataire ne répond pas dans la
+// minute qui suit l'ouverture.
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../config/prisma');
 const DEPARTMENTS = require('../data/departments');
@@ -16,6 +21,8 @@ const DEPARTMENTS = require('../data/departments');
 const DEPARTMENT_CODES = new Set(DEPARTMENTS.map((d) => d.code));
 const MAX_MESSAGE_LENGTH = 500;
 const GENDER_BUCKETS = ['HOMME', 'FEMME', 'TRANS', 'AUTRE'];
+const MAX_PRIVATE_THREADS = 25;
+const PRIVATE_REPLY_TIMEOUT_MS = 60 * 1000;
 
 // Réduit le genre détaillé d'un profil aux 4 catégories d'affichage du
 // tchat (couleur bleu/rose/jaune/gris) — couples et non-binaire tombent
@@ -34,7 +41,9 @@ async function isBanned({ userId, guestId }) {
 
 // Présence en mémoire uniquement (pas de persistance) : qui est dans quel
 // salon, pour le compteur par département et la liste des connectés.
-const roomUsers = new Map(); // department -> Map<socketId, {pseudo, genderBucket}>
+const roomUsers = new Map(); // department -> Map<socketId, identity-lite>
+// Fils privés en mémoire : threadId ("idA:idB" trié) -> état du fil.
+const privateThreads = new Map();
 
 function countsSnapshot() {
   const counts = {};
@@ -45,7 +54,28 @@ function countsSnapshot() {
 function usersSnapshot(department) {
   const users = roomUsers.get(department);
   if (!users) return [];
-  return [...users.values()].sort((a, b) => GENDER_BUCKETS.indexOf(a.genderBucket) - GENDER_BUCKETS.indexOf(b.genderBucket));
+  return [...users.entries()]
+    .map(([socketId, u]) => ({ socketId, ...u }))
+    .sort((a, b) => GENDER_BUCKETS.indexOf(a.genderBucket) - GENDER_BUCKETS.indexOf(b.genderBucket));
+}
+
+function peerInfo(identity) {
+  return {
+    pseudo: identity.pseudo,
+    genderBucket: identity.genderBucket,
+    isMember: identity.type === 'member',
+    experienceLevel: identity.experienceLevel || null,
+  };
+}
+
+function threadIdFor(a, b) {
+  return [a, b].sort().join(':');
+}
+
+function countThreadsFor(socketId) {
+  let n = 0;
+  for (const t of privateThreads.values()) if (t.sockets.includes(socketId)) n++;
+  return n;
 }
 
 function initChatSockets(io) {
@@ -58,7 +88,13 @@ function initChatSockets(io) {
         const payload = verifyToken(token);
         const user = await prisma.user.findUnique({ where: { id: payload.userId }, include: { profile: true } });
         if (user && user.profile && user.status === 'ACTIVE') {
-          socket.identity = { type: 'member', userId: user.id, pseudo: user.profile.pseudo, genderBucket: genderBucket(user.profile.gender) };
+          socket.identity = {
+            type: 'member',
+            userId: user.id,
+            pseudo: user.profile.pseudo,
+            genderBucket: genderBucket(user.profile.gender),
+            experienceLevel: user.profile.experienceLevel,
+          };
         }
       }
       // Pas d'identité valide : connexion acceptée quand même, en mode
@@ -95,7 +131,7 @@ function initChatSockets(io) {
         socket.disconnect(true);
         return;
       }
-      socket.identity = { type: 'guest', guestId: parsed.id, pseudo: parsed.pseudo, genderBucket: parsed.gender };
+      socket.identity = { type: 'guest', guestId: parsed.id, pseudo: parsed.pseudo, genderBucket: parsed.gender, experienceLevel: null };
       socket.emit('chat:identified');
     });
 
@@ -115,13 +151,17 @@ function initChatSockets(io) {
       currentDept = department;
       socket.join(`chat:${department}`);
       if (!roomUsers.has(department)) roomUsers.set(department, new Map());
-      roomUsers.get(department).set(socket.id, { pseudo: socket.identity.pseudo, genderBucket: socket.identity.genderBucket });
+      roomUsers.get(department).set(socket.id, {
+        pseudo: socket.identity.pseudo,
+        genderBucket: socket.identity.genderBucket,
+        isMember: socket.identity.type === 'member',
+        experienceLevel: socket.identity.experienceLevel,
+      });
       chat.to(`chat:${department}`).emit('chat:users', usersSnapshot(department));
       chat.emit('chat:counts', countsSnapshot());
     });
 
     socket.on('chat:leave', leaveCurrentRoom);
-    socket.on('disconnect', leaveCurrentRoom);
 
     socket.on('chat:message', async (content) => {
       if (!currentDept || !socket.identity) return;
@@ -152,6 +192,73 @@ function initChatSockets(io) {
         genderBucket: socket.identity.genderBucket,
         isGuest: type === 'guest',
       });
+    });
+
+    // --- Discussions privées ---
+
+    function closeThread(threadId, { silent } = {}) {
+      const thread = privateThreads.get(threadId);
+      if (!thread) return;
+      clearTimeout(thread.timer);
+      privateThreads.delete(threadId);
+      if (!silent) {
+        for (const sid of thread.sockets) {
+          chat.to(sid).emit('chat:privateClosed', { threadId });
+        }
+      }
+    }
+
+    socket.on('chat:privateOpen', (targetSocketId) => {
+      if (!socket.identity || !targetSocketId || targetSocketId === socket.id) return;
+      const target = chat.sockets.get(targetSocketId);
+      if (!target || !target.identity) return;
+
+      const threadId = threadIdFor(socket.id, targetSocketId);
+      if (privateThreads.has(threadId)) {
+        socket.emit('chat:privateOpened', { threadId, peer: peerInfo(target.identity) });
+        return;
+      }
+      if (countThreadsFor(socket.id) >= MAX_PRIVATE_THREADS) {
+        socket.emit('chat:privateLimitReached');
+        return;
+      }
+
+      const timer = setTimeout(() => closeThread(threadId), PRIVATE_REPLY_TIMEOUT_MS);
+      privateThreads.set(threadId, { sockets: [socket.id, targetSocketId], openedBy: socket.id, answered: false, timer });
+
+      socket.emit('chat:privateOpened', { threadId, peer: peerInfo(target.identity) });
+      chat.to(targetSocketId).emit('chat:privateOpened', { threadId, peer: peerInfo(socket.identity) });
+    });
+
+    socket.on('chat:privateMessage', async ({ threadId, content } = {}) => {
+      const thread = privateThreads.get(threadId);
+      if (!thread || !thread.sockets.includes(socket.id) || !socket.identity) return;
+      const text = String(content || '').trim().slice(0, MAX_MESSAGE_LENGTH);
+      if (!text) return;
+      const { type, userId, guestId } = socket.identity;
+      if (await isBanned({ userId, guestId })) {
+        socket.emit('chat:banned');
+        socket.disconnect(true);
+        return;
+      }
+
+      // Le destinataire a répondu : le fil ne se ferme plus automatiquement.
+      if (socket.id !== thread.openedBy && !thread.answered) {
+        thread.answered = true;
+        clearTimeout(thread.timer);
+      }
+
+      const payload = { threadId, content: text, createdAt: new Date(), from: peerInfo(socket.identity) };
+      for (const sid of thread.sockets) chat.to(sid).emit('chat:privateMessage', payload);
+    });
+
+    socket.on('chat:privateClose', ({ threadId } = {}) => closeThread(threadId));
+
+    socket.on('disconnect', () => {
+      leaveCurrentRoom();
+      for (const [threadId, thread] of privateThreads) {
+        if (thread.sockets.includes(socket.id)) closeThread(threadId);
+      }
     });
   });
 }

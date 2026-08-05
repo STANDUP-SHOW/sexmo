@@ -4,12 +4,21 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch } from '../../lib/api';
 import { getChatSocket, identifyAsGuest, disconnectChatSocket } from '../../lib/chatSocket';
+import { EXPERIENCE_LEVEL_EMOJI } from '../../lib/enums';
 import AgeGate from '../../components/AgeGate';
+import LogoMark from '../../components/LogoMark';
 
 const GENDER_LABELS = { HOMME: 'Homme', FEMME: 'Femme', TRANS: 'Trans', AUTRE: 'Non-genré' };
 const GENDER_TEXT_COLORS = { HOMME: 'text-blue-600', FEMME: 'text-pink-600', TRANS: 'text-yellow-600', AUTRE: 'text-neutral-600' };
 const GENDER_DOT_COLORS = { HOMME: 'bg-blue-500', FEMME: 'bg-pink-500', TRANS: 'bg-yellow-500', AUTRE: 'bg-neutral-400' };
 const GENDER_ORDER = ['HOMME', 'FEMME', 'TRANS', 'AUTRE'];
+const MAX_PRIVATE_THREADS = 25;
+
+function PeerIcon({ peer }) {
+  if (!peer.isMember) return null;
+  if (peer.experienceLevel) return <span title={peer.experienceLevel}>{EXPERIENCE_LEVEL_EMOJI[peer.experienceLevel]}</span>;
+  return <span title="Membre sexmo"><LogoMark className="h-3.5 w-3.5 inline-block align-middle" /></span>;
+}
 
 export default function TchatPage() {
   const { user } = useAuth();
@@ -19,11 +28,13 @@ export default function TchatPage() {
   const [guestPseudo, setGuestPseudo] = useState('');
   const [guestGender, setGuestGender] = useState('HOMME');
   const [identified, setIdentified] = useState(false);
-  const [joined, setJoined] = useState(false);
   const [messages, setMessages] = useState([]);
   const [roomUsers, setRoomUsers] = useState([]);
   const [text, setText] = useState('');
   const [banned, setBanned] = useState(false);
+  const [threads, setThreads] = useState([]); // {threadId, peer, messages, unread}
+  const [activeThreadId, setActiveThreadId] = useState(null); // null = salon public
+  const [limitNotice, setLimitNotice] = useState('');
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -39,19 +50,48 @@ export default function TchatPage() {
     const onUsers = (u) => setRoomUsers(u);
     const onMessage = (msg) => setMessages((m) => [...m, msg]);
     const onBanned = () => setBanned(true);
+
+    const onPrivateOpened = ({ threadId, peer }) => {
+      setThreads((t) => (t.some((x) => x.threadId === threadId) ? t : [...t, { threadId, peer, messages: [], unread: false }]));
+    };
+    const onPrivateMessage = (msg) => {
+      setThreads((t) => t.map((x) => (x.threadId === msg.threadId
+        ? { ...x, messages: [...x.messages, msg], unread: activeThreadIdRef.current !== msg.threadId }
+        : x)));
+    };
+    const onPrivateClosed = ({ threadId }) => {
+      setThreads((t) => t.filter((x) => x.threadId !== threadId));
+      setActiveThreadId((id) => (id === threadId ? null : id));
+    };
+    const onLimitReached = () => setLimitNotice(`Maximum ${MAX_PRIVATE_THREADS} discussions privées ouvertes en même temps.`);
+
     socket.on('chat:counts', onCounts);
     socket.on('chat:identified', onIdentified);
     socket.on('chat:users', onUsers);
     socket.on('chat:message', onMessage);
     socket.on('chat:banned', onBanned);
+    socket.on('chat:privateOpened', onPrivateOpened);
+    socket.on('chat:privateMessage', onPrivateMessage);
+    socket.on('chat:privateClosed', onPrivateClosed);
+    socket.on('chat:privateLimitReached', onLimitReached);
     return () => {
       socket.off('chat:counts', onCounts);
       socket.off('chat:identified', onIdentified);
       socket.off('chat:users', onUsers);
       socket.off('chat:message', onMessage);
       socket.off('chat:banned', onBanned);
+      socket.off('chat:privateOpened', onPrivateOpened);
+      socket.off('chat:privateMessage', onPrivateMessage);
+      socket.off('chat:privateClosed', onPrivateClosed);
+      socket.off('chat:privateLimitReached', onLimitReached);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Ref pour connaître l'onglet actif dans le callback socket sans le
+  // ré-abonner à chaque changement d'onglet.
+  const activeThreadIdRef = useRef(null);
+  useEffect(() => { activeThreadIdRef.current = activeThreadId; }, [activeThreadId]);
 
   useEffect(() => () => disconnectChatSocket(), []);
 
@@ -61,10 +101,8 @@ export default function TchatPage() {
     if (!department || !canJoin) return;
     apiFetch(`/api/chat/${department}/history`).then((d) => setMessages(d.messages)).catch(() => {});
     getChatSocket().emit('chat:join', department);
-    setJoined(true);
     return () => {
       getChatSocket().emit('chat:leave');
-      setJoined(false);
       setRoomUsers([]);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,7 +110,7 @@ export default function TchatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, threads, activeThreadId]);
 
   const submitGuestForm = (e) => {
     e.preventDefault();
@@ -83,11 +121,32 @@ export default function TchatPage() {
   const send = (e) => {
     e.preventDefault();
     if (!text.trim()) return;
-    getChatSocket().emit('chat:message', text);
+    if (activeThreadId) {
+      getChatSocket().emit('chat:privateMessage', { threadId: activeThreadId, content: text });
+    } else {
+      getChatSocket().emit('chat:message', text);
+    }
     setText('');
   };
 
+  const openPrivate = (targetSocketId) => {
+    if (targetSocketId === getChatSocket().id) return;
+    getChatSocket().emit('chat:privateOpen', targetSocketId);
+  };
+
+  const closePrivate = (threadId) => {
+    getChatSocket().emit('chat:privateClose', { threadId });
+    setThreads((t) => t.filter((x) => x.threadId !== threadId));
+    setActiveThreadId((id) => (id === threadId ? null : id));
+  };
+
+  const switchTab = (threadId) => {
+    setActiveThreadId(threadId);
+    if (threadId) setThreads((t) => t.map((x) => (x.threadId === threadId ? { ...x, unread: false } : x)));
+  };
+
   const groupedUsers = GENDER_ORDER.map((g) => ({ gender: g, users: roomUsers.filter((u) => u.genderBucket === g) })).filter((g) => g.users.length > 0);
+  const activeThread = threads.find((t) => t.threadId === activeThreadId);
 
   if (banned) {
     return (
@@ -144,26 +203,66 @@ export default function TchatPage() {
   return (
     <div className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-4 h-[70vh]">
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center justify-between pb-3 mb-1 border-b border-neutral-200">
+        <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
           <div>
             <h1 className="font-semibold">Salon {department} — {dept?.name}</h1>
             <p className="text-xs text-neutral-500">
               {user?.profile ? user.profile.pseudo : `${guestPseudo} (invité·e)`} · {roomUsers.length} connecté(s)
             </p>
           </div>
-          <button className="btn-secondary text-xs" onClick={() => { setDepartment(null); setIdentified(false); }}>Changer</button>
+          <button className="btn-secondary text-xs" onClick={() => { setDepartment(null); setIdentified(false); setThreads([]); setActiveThreadId(null); }}>Changer</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-2 py-2">
-          {messages.map((m) => (
-            <div key={m.id} className="text-sm">
-              <span className={`font-medium ${m.genderBucket ? GENDER_TEXT_COLORS[m.genderBucket] : 'text-brand-600'}`}>{m.authorName}</span>
-              <span className="text-neutral-800"> : {m.content}</span>
-            </div>
+        {limitNotice && (
+          <p className="text-xs text-red-600 py-1 cursor-pointer" onClick={() => setLimitNotice('')}>{limitNotice} (fermer)</p>
+        )}
+
+        <div className="flex gap-1 overflow-x-auto py-2 border-b border-neutral-200">
+          <button onClick={() => switchTab(null)}
+            className={`text-xs whitespace-nowrap rounded-full px-3 py-1 border ${!activeThreadId ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600'}`}>
+            Salon
+          </button>
+          {threads.map((t) => (
+            <button key={t.threadId} onClick={() => switchTab(t.threadId)}
+              className={`flex items-center gap-1 text-xs whitespace-nowrap rounded-full pl-3 pr-1.5 py-1 border ${
+                activeThreadId === t.threadId ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600'
+              }`}>
+              <PeerIcon peer={t.peer} />
+              <span className={activeThreadId === t.threadId ? '' : GENDER_TEXT_COLORS[t.peer.genderBucket]}>{t.peer.pseudo}</span>
+              {t.unread && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+              <span onClick={(e) => { e.stopPropagation(); closePrivate(t.threadId); }} className="ml-1 hover:opacity-70">×</span>
+            </button>
           ))}
-          {messages.length === 0 && <p className="text-sm text-neutral-500">Aucun message pour l'instant, lancez la discussion !</p>}
-          <div ref={bottomRef} />
         </div>
+
+        {!activeThreadId ? (
+          <>
+            <div className="flex-1 overflow-y-auto space-y-2 py-2">
+              {messages.map((m) => (
+                <div key={m.id} className="text-sm">
+                  <span className={`font-medium ${m.genderBucket ? GENDER_TEXT_COLORS[m.genderBucket] : 'text-brand-600'}`}>{m.authorName}</span>
+                  <span className="text-neutral-800"> : {m.content}</span>
+                </div>
+              ))}
+              {messages.length === 0 && <p className="text-sm text-neutral-500">Aucun message pour l'instant, lancez la discussion !</p>}
+              <div ref={bottomRef} />
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 overflow-y-auto space-y-2 py-2">
+            <p className="text-xs text-neutral-500 flex items-center gap-1">
+              Discussion privée avec <PeerIcon peer={activeThread.peer} /> <span className={GENDER_TEXT_COLORS[activeThread.peer.genderBucket]}>{activeThread.peer.pseudo}</span>
+            </p>
+            {activeThread.messages.map((m, i) => (
+              <div key={i} className="text-sm">
+                <span className={`font-medium ${GENDER_TEXT_COLORS[m.from.genderBucket]}`}>{m.from.pseudo}</span>
+                <span className="text-neutral-800"> : {m.content}</span>
+              </div>
+            ))}
+            {activeThread.messages.length === 0 && <p className="text-sm text-neutral-500">Dites bonjour ! Si la personne ne répond pas, cette discussion se ferme dans une minute.</p>}
+            <div ref={bottomRef} />
+          </div>
+        )}
 
         <form onSubmit={send} className="flex gap-2 pt-2 border-t border-neutral-200">
           <input className="input" placeholder="Votre message..." maxLength={500}
@@ -179,11 +278,13 @@ export default function TchatPage() {
             <div key={gender}>
               <p className="text-[10px] uppercase text-neutral-400 mb-1">{GENDER_LABELS[gender]}</p>
               <div className="space-y-1">
-                {users.map((u, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-sm">
+                {users.map((u) => (
+                  <button key={u.socketId} onClick={() => openPrivate(u.socketId)}
+                    className="flex items-center gap-1.5 text-sm hover:underline w-full text-left">
                     <span className={`w-1.5 h-1.5 rounded-full ${GENDER_DOT_COLORS[gender]}`} />
                     <span className={GENDER_TEXT_COLORS[gender]}>{u.pseudo}</span>
-                  </div>
+                    <PeerIcon peer={{ isMember: u.isMember, experienceLevel: u.experienceLevel }} />
+                  </button>
                 ))}
               </div>
             </div>
