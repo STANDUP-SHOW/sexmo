@@ -67,10 +67,12 @@ router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next)
   }
 });
 
-router.delete('/:id', requireAuth, requireProfile, async (req, res, next) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const video = await prisma.video.findUnique({ where: { id: req.params.id } });
-    if (!video || video.profileId !== req.user.profile.id) {
+    const isOwner = video && req.user.profile && video.profileId === req.user.profile.id;
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!video || (!isOwner && !isAdmin)) {
       return res.status(404).json({ error: 'Vidéo introuvable' });
     }
     await prisma.video.delete({ where: { id: video.id } });

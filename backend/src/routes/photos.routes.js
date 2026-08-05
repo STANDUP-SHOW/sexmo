@@ -82,10 +82,12 @@ router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next)
   }
 });
 
-router.delete('/:id', requireAuth, requireProfile, async (req, res, next) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
-    if (!photo || photo.profileId !== req.user.profile.id) {
+    const isOwner = photo && req.user.profile && photo.profileId === req.user.profile.id;
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!photo || (!isOwner && !isAdmin)) {
       return res.status(404).json({ error: 'Photo introuvable' });
     }
     await prisma.photo.delete({ where: { id: photo.id } });

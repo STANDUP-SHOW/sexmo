@@ -19,6 +19,7 @@ router.get('/', async (req, res, next) => {
         id: t.id,
         rating: t.rating,
         content: t.content,
+        adminReply: t.adminReply,
         createdAt: t.createdAt,
         authorPseudo: t.authorUser.profile?.pseudo || 'Utilisateur',
       })),

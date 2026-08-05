@@ -23,6 +23,7 @@ const photoAccessRoutes = require('./routes/photoAccess.routes');
 const videoRoutes = require('./routes/videos.routes');
 const galleryRoutes = require('./routes/gallery.routes');
 const publicRoutes = require('./routes/public.routes');
+const adminMembersRoutes = require('./routes/adminMembers.routes');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/photo-access', photoAccessRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/admin/members', adminMembersRoutes);
 
 app.use(errorHandler);
 

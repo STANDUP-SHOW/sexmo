@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '../../../lib/AuthContext';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, mediaUrl } from '../../../lib/api';
 
 export default function CmsPage() {
   const { slug } = useParams();
@@ -50,6 +50,16 @@ export default function CmsPage() {
         <h1 className="text-2xl font-bold mb-4">{page.title}</h1>
         <div className="text-neutral-800 whitespace-pre-line">{page.content}</div>
       </div>
+
+      {page.images?.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {page.images.map((url) => (
+            <div key={url} className="aspect-square rounded-lg overflow-hidden bg-neutral-200">
+              <img src={mediaUrl(url)} alt="" className="w-full h-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
 
       <section className="space-y-4">
         <h2 className="font-semibold">Commentaires</h2>

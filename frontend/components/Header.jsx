@@ -8,12 +8,18 @@ import { splitBrandName } from '../lib/splitBrandName';
 import LogoMark from './LogoMark';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, impersonating, stopImpersonating } = useAuth();
   const { siteName, logoUrl } = useSettings();
   const [first, second] = splitBrandName(siteName);
 
   return (
     <header className="border-b border-ink-800 sticky top-0 bg-ink-900/95 backdrop-blur z-20">
+      {impersonating && (
+        <div className="bg-yellow-500 text-yellow-950 text-xs font-medium px-4 py-1.5 flex items-center justify-between">
+          <span>Vous naviguez en tant que {user?.profile?.pseudo || user?.email}</span>
+          <button onClick={stopImpersonating} className="underline hover:no-underline">Retour admin</button>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg">
           {logoUrl ? <img src={mediaUrl(logoUrl)} alt="" className="h-7 w-7 rounded object-cover" /> : <LogoMark />}

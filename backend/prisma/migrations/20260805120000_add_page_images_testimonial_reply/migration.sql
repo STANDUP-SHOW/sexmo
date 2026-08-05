@@ -1,0 +1,2 @@
+ALTER TABLE "pages" ADD COLUMN "images" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "testimonials" ADD COLUMN "adminReply" VARCHAR(1000);

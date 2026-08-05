@@ -63,6 +63,11 @@ export default function AvisPage() {
             <div className="text-yellow-400 text-sm">{'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)}</div>
             <p className="text-sm text-neutral-800 mt-1">{t.content}</p>
             <p className="text-xs text-neutral-500 mt-1">{t.authorPseudo}</p>
+            {t.adminReply && (
+              <div className="bg-neutral-100 rounded-lg p-2 text-sm text-neutral-700 mt-2">
+                <span className="font-medium">Réponse du site : </span>{t.adminReply}
+              </div>
+            )}
           </div>
         ))}
         {testimonials.length === 0 && <p className="text-sm text-neutral-500">Aucun avis pour l'instant.</p>}

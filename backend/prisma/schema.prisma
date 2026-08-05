@@ -300,6 +300,9 @@ model Page {
   title     String
   content   String   @db.Text
   published Boolean  @default(false)
+  // Galerie d'images propre à la page (ex. photos d'une soirée), distincte
+  // des photos de profil des membres.
+  images    String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -328,6 +331,8 @@ model Testimonial {
   rating       Int
   content      String           @db.VarChar(1000)
   status       ModerationStatus @default(PENDING)
+  // Réponse publique du site à l'avis (façon "réponse du propriétaire").
+  adminReply   String?          @db.VarChar(1000)
   createdAt    DateTime         @default(now())
 
   @@map("testimonials")

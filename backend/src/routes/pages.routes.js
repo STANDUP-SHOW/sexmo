@@ -30,7 +30,7 @@ router.get('/:slug', async (req, res, next) => {
     });
 
     res.json({
-      page: { slug: page.slug, title: page.title, content: page.content },
+      page: { slug: page.slug, title: page.title, content: page.content, images: page.images },
       comments: comments.map((c) => ({
         id: c.id,
         content: c.content,

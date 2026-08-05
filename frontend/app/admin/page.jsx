@@ -6,14 +6,18 @@ import { useAuth } from '../../lib/AuthContext';
 import { apiFetch } from '../../lib/api';
 import ModerationTab from '../../components/admin/ModerationTab';
 import VideosTab from '../../components/admin/VideosTab';
+import MembersTab from '../../components/admin/MembersTab';
+import ImportTab from '../../components/admin/ImportTab';
 import PagesTab from '../../components/admin/PagesTab';
 import CommentsTab from '../../components/admin/CommentsTab';
 import TestimonialsTab from '../../components/admin/TestimonialsTab';
 import SettingsTab from '../../components/admin/SettingsTab';
 
 const TABS = [
+  { id: 'members', label: 'Membres' },
   { id: 'moderation', label: 'Modération' },
   { id: 'videos', label: 'Vidéos' },
+  { id: 'import', label: 'Import' },
   { id: 'pages', label: 'Pages' },
   { id: 'comments', label: 'Commentaires' },
   { id: 'testimonials', label: 'Avis' },
@@ -24,7 +28,7 @@ export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState(null);
-  const [tab, setTab] = useState('moderation');
+  const [tab, setTab] = useState('members');
 
   useEffect(() => {
     if (!loading && (!user || user.role !== 'ADMIN')) router.push('/');
@@ -63,8 +67,10 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {tab === 'members' && <MembersTab />}
       {tab === 'moderation' && <ModerationTab />}
       {tab === 'videos' && <VideosTab />}
+      {tab === 'import' && <ImportTab />}
       {tab === 'pages' && <PagesTab />}
       {tab === 'comments' && <CommentsTab />}
       {tab === 'testimonials' && <TestimonialsTab />}

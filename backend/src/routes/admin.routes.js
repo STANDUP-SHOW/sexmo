@@ -54,6 +54,31 @@ router.patch('/photos/:id', async (req, res, next) => {
   }
 });
 
+const batchModerateSchema = z.object({
+  ids: z.array(z.string()).min(1).max(200),
+  status: z.enum(['APPROVED', 'REJECTED']),
+});
+
+router.post('/photos/batch', async (req, res, next) => {
+  try {
+    const { ids, status } = batchModerateSchema.parse(req.body);
+    const result = await prisma.photo.updateMany({ where: { id: { in: ids } }, data: { moderationStatus: status } });
+    res.json({ updated: result.count });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/videos/batch', async (req, res, next) => {
+  try {
+    const { ids, status } = batchModerateSchema.parse(req.body);
+    const result = await prisma.video.updateMany({ where: { id: { in: ids } }, data: { moderationStatus: status } });
+    res.json({ updated: result.count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/videos/pending', async (req, res, next) => {
   try {
     const videos = await prisma.video.findMany({
@@ -164,6 +189,7 @@ const pageSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1),
   published: z.boolean().optional(),
+  images: z.array(z.string()).optional(),
 });
 
 router.post('/pages', async (req, res, next) => {
@@ -192,6 +218,38 @@ router.delete('/pages/:id', async (req, res, next) => {
   try {
     await prisma.page.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const pageImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => cb(null, `page-${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) return cb(new Error('Format non supporté (jpeg, png ou webp)'));
+    cb(null, true);
+  },
+});
+
+// Galerie d'une page : upload multiple, chaque image ajoutée au tableau
+// `images`. Suppression via PATCH /pages/:id avec le tableau `images` réduit.
+router.post('/pages/:id/images', pageImageUpload.array('images', 30), async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier reçu' });
+    const page = await prisma.page.findUnique({ where: { id: req.params.id } });
+    if (!page) return res.status(404).json({ error: 'Page introuvable' });
+
+    const newUrls = req.files.map((f) => `/uploads/${f.filename}`);
+    const updated = await prisma.page.update({
+      where: { id: page.id },
+      data: { images: [...page.images, ...newUrls] },
+    });
+    res.status(201).json({ page: updated });
   } catch (err) {
     next(err);
   }
@@ -234,6 +292,19 @@ router.delete('/comments/:id', async (req, res, next) => {
 
 // --- Avis / témoignages ---
 
+router.get('/testimonials', async (req, res, next) => {
+  try {
+    const testimonials = await prisma.testimonial.findMany({
+      include: { authorUser: { select: { email: true, profile: { select: { pseudo: true } } } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    res.json({ testimonials });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/testimonials/pending', async (req, res, next) => {
   try {
     const testimonials = await prisma.testimonial.findMany({
@@ -248,10 +319,44 @@ router.get('/testimonials/pending', async (req, res, next) => {
   }
 });
 
+// Un avis créé depuis le back-office doit être rattaché à un membre existant
+// et réel (recherché par e-mail) — jamais un auteur inventé, ce qui
+// constituerait un faux avis client.
+const adminCreateTestimonialSchema = z.object({
+  authorEmail: z.string().email(),
+  rating: z.number().int().min(1).max(5),
+  content: z.string().min(1).max(1000),
+});
+
+router.post('/testimonials', async (req, res, next) => {
+  try {
+    const data = adminCreateTestimonialSchema.parse(req.body);
+    const author = await prisma.user.findUnique({ where: { email: data.authorEmail } });
+    if (!author) return res.status(404).json({ error: 'Aucun membre trouvé avec cet e-mail' });
+
+    const testimonial = await prisma.testimonial.create({
+      data: {
+        authorUserId: author.id,
+        rating: data.rating,
+        content: data.content,
+        status: 'APPROVED',
+      },
+    });
+    res.status(201).json({ testimonial });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const testimonialPatchSchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  adminReply: z.string().max(1000).nullable().optional(),
+});
+
 router.patch('/testimonials/:id', async (req, res, next) => {
   try {
-    const { status } = moderateSchema.parse(req.body);
-    const testimonial = await prisma.testimonial.update({ where: { id: req.params.id }, data: { status } });
+    const data = testimonialPatchSchema.parse(req.body);
+    const testimonial = await prisma.testimonial.update({ where: { id: req.params.id }, data });
     res.json({ testimonial });
   } catch (err) {
     next(err);
