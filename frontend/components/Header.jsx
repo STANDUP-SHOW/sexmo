@@ -17,7 +17,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg">
           {logoUrl ? <img src={mediaUrl(logoUrl)} alt="" className="h-7 w-7 rounded object-cover" /> : <LogoMark />}
-          <span className="text-brand-400">{first}</span><span className="text-white">{second}</span>
+          <span><span className="text-brand-400">{first}</span><span className="text-white">{second}</span></span>
         </Link>
 
         {user ? (
