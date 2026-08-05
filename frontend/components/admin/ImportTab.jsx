@@ -5,9 +5,20 @@ import { apiFetch, API_URL, getToken } from '../../lib/api';
 
 export default function ImportTab() {
   const [file, setFile] = useState(null);
+  const [photoFiles, setPhotoFiles] = useState([]);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+
+  // Sélection d'un dossier entier (ex. "membres 1") : on y récupère le
+  // fichier de données (xlsx/csv/txt) et toutes les photos, en un seul clic.
+  const pickFolder = (fileList) => {
+    const all = Array.from(fileList || []);
+    const data = all.find((f) => /\.(xlsx|xls|csv|txt)$/i.test(f.name));
+    const photos = all.filter((f) => /\.(jpe?g|png|webp)$/i.test(f.name));
+    setFile(data || null);
+    setPhotoFiles(photos);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -18,6 +29,7 @@ export default function ImportTab() {
     try {
       const fd = new FormData();
       fd.append('file', file);
+      photoFiles.forEach((p) => fd.append('photos', p));
       const data = await apiFetch('/api/admin/members/import', { method: 'POST', body: fd });
       setResult(data);
     } catch (err) {
@@ -50,19 +62,44 @@ export default function ImportTab() {
           <li><code>seeking</code> — une ou plusieurs valeurs de la liste "gender" séparées par un point-virgule, ex. <code>HOMME;COUPLE_HOMME_FEMME</code></li>
           <li><code>city</code> — obligatoire</li>
           <li><code>bio</code> — optionnel</li>
+          <li><code>photoPrefix</code> — optionnel, voir import des photos ci-dessous</li>
         </ul>
         <button className="btn-secondary text-sm" onClick={downloadTemplate}>Télécharger un modèle CSV</button>
       </div>
 
+      <div className="card space-y-3">
+        <h2 className="font-semibold">Import groupé des photos (5 par membre)</h2>
+        <p className="text-sm text-neutral-500">
+          Un dossier (ex. « membres 1 ») contenant le fichier de données ET les photos. Chaque photo doit être nommée
+          <code> {'{prefix}'}-photo1</code> à <code>{'{prefix}'}-photo5</code>
+          (ex. <code>jeanne_d-photo1.jpg</code>), où <code>{'{prefix}'}</code> est la colonne <code>photoPrefix</code> de la ligne,
+          ou à défaut le <code>pseudo</code> (accents, espaces et casse ignorés dans la comparaison). Au-delà de 5 photos par membre,
+          les suivantes sont ignorées.
+        </p>
+        <label className="btn-secondary text-sm cursor-pointer inline-block">
+          Choisir le dossier « membres »
+          <input type="file" multiple webkitdirectory="" directory="" className="hidden"
+            onChange={(e) => pickFolder(e.target.files)} />
+        </label>
+        {file && (
+          <p className="text-xs text-neutral-500">
+            Fichier de données : <strong>{file.name}</strong> · {photoFiles.length} photo(s) détectée(s) dans le dossier
+          </p>
+        )}
+      </div>
+
       <form onSubmit={submit} className="card space-y-3">
-        <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(e) => setFile(e.target.files[0] || null)} />
+        <p className="text-sm text-neutral-500">
+          Ou sélectionnez seulement le fichier de données (sans photos) :
+        </p>
+        <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(e) => { setFile(e.target.files[0] || null); setPhotoFiles([]); }} />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button className="btn-primary" disabled={!file || importing}>{importing ? 'Import en cours...' : 'Importer'}</button>
       </form>
 
       {result && (
         <div className="card space-y-3">
-          <p className="text-sm text-green-600">{result.created} membre(s) créé(s).</p>
+          <p className="text-sm text-green-600">{result.created} membre(s) créé(s){result.photosImported > 0 ? `, ${result.photosImported} photo(s) importée(s)` : ''}.</p>
           {result.errors.length > 0 && (
             <div>
               <p className="text-sm text-red-600 mb-1">{result.errors.length} ligne(s) en erreur :</p>

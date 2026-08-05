@@ -3,10 +3,12 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const XLSX = require('xlsx');
 const { z } = require('zod');
 const prisma = require('../config/prisma');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { getSettings } = require('./settings.routes');
+const DEPARTMENTS = require('../data/departments');
 
 const router = express.Router();
 
@@ -349,6 +351,79 @@ router.post('/testimonials', async (req, res, next) => {
   }
 });
 
+// --- Avis : import en masse (Excel .xlsx, CSV, ou TXT) ---
+// Colonnes attendues : authorEmail (obligatoire, doit correspondre à un
+// membre existant — jamais d'auteur inventé), rating (1 à 5), content.
+router.get('/testimonials/import/template', (req, res) => {
+  const header = ['authorEmail', 'rating', 'content'];
+  const example = ['jeanne.d@example.com', '5', 'Superbe expérience, équipe très à l\'écoute.'];
+  const csv = [header.join(','), example.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')].join('\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="modele-import-avis.csv"');
+  res.send('﻿' + csv);
+});
+
+const testimonialImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedExt = ['.xlsx', '.xls', '.csv', '.txt'];
+    if (!allowedExt.includes(path.extname(file.originalname).toLowerCase())) {
+      return cb(new Error('Format non supporté (xlsx, xls, csv ou txt uniquement)'));
+    }
+    cb(null, true);
+  },
+});
+
+const testimonialImportRowSchema = z.object({
+  authorEmail: z.string().trim().email('e-mail invalide'),
+  rating: z.coerce.number().int().min(1, 'note entre 1 et 5').max(5, 'note entre 1 et 5'),
+  content: z.string().trim().min(1).max(1000),
+});
+
+router.post('/testimonials/import', testimonialImportUpload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Le fichier ne contient aucune ligne de données (vérifiez la ligne d\'en-têtes).' });
+    }
+
+    const results = { created: 0, errors: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = i + 2;
+      const raw = rows[i];
+      try {
+        const data = testimonialImportRowSchema.parse(raw);
+        const author = await prisma.user.findUnique({ where: { email: data.authorEmail } });
+        if (!author) throw new Error('aucun membre trouvé avec cet e-mail');
+
+        await prisma.testimonial.create({
+          data: {
+            authorUserId: author.id,
+            rating: data.rating,
+            content: data.content,
+            status: 'APPROVED',
+          },
+        });
+        results.created++;
+      } catch (rowErr) {
+        const message = rowErr.issues?.map((i) => i.message).join('; ') || rowErr.message;
+        results.errors.push({ row: rowNumber, authorEmail: raw.authorEmail || '(vide)', reason: message });
+      }
+    }
+
+    res.json(results);
+  } catch (err) {
+    next(err);
+  }
+});
+
 const testimonialPatchSchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
   adminReply: z.string().max(1000).nullable().optional(),
@@ -403,6 +478,89 @@ router.delete('/places/:id', async (req, res, next) => {
   try {
     await prisma.meetingPlace.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Lieux de rencontre : import en masse (Excel .xlsx, CSV, ou TXT
+// délimité par virgule/tabulation), même logique que l'import des membres.
+// Colonnes attendues : name, type (SAUNA/LOVE_SHOP/HAMMAM/BAR/CLUB_VIDEO/
+// CINEMA), department (code à 2-3 chiffres), city (optionnel), description
+// (optionnel). Ajoutés par un administrateur : publiés d'emblée.
+const PLACE_TYPES = ['SAUNA', 'LOVE_SHOP', 'HAMMAM', 'BAR', 'CLUB_VIDEO', 'CINEMA'];
+const PLACE_DEPARTMENT_CODES = new Set(DEPARTMENTS.map((d) => d.code));
+
+router.get('/places/import/template', (req, res) => {
+  const header = ['name', 'type', 'department', 'city', 'description'];
+  const example = ['Le Club Discret', 'BAR', '75', 'Paris', 'Ambiance conviviale, ouvert le week-end.'];
+  const csv = [header.join(','), example.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')].join('\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="modele-import-lieux.csv"');
+  res.send('﻿' + csv);
+});
+
+const placesImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedExt = ['.xlsx', '.xls', '.csv', '.txt'];
+    if (!allowedExt.includes(path.extname(file.originalname).toLowerCase())) {
+      return cb(new Error('Format non supporté (xlsx, xls, csv ou txt uniquement)'));
+    }
+    cb(null, true);
+  },
+});
+
+const placeImportRowSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  type: z.enum(PLACE_TYPES, { errorMap: () => ({ message: `type invalide (attendu : ${PLACE_TYPES.join(', ')})` }) }),
+  department: z.string().trim().refine((d) => PLACE_DEPARTMENT_CODES.has(d), 'département invalide'),
+  city: z.string().trim().max(100).optional(),
+  description: z.string().trim().max(500).optional(),
+});
+
+router.post('/places/import', placesImportUpload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Le fichier ne contient aucune ligne de données (vérifiez la ligne d\'en-têtes).' });
+    }
+
+    const results = { created: 0, errors: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = i + 2;
+      const raw = rows[i];
+      try {
+        const data = placeImportRowSchema.parse({
+          ...raw,
+          department: String(raw.department || '').trim(),
+        });
+        await prisma.meetingPlace.create({
+          data: {
+            name: data.name,
+            type: data.type,
+            department: data.department,
+            city: data.city || null,
+            description: data.description || '',
+            addedByUserId: req.user.id,
+            moderationStatus: 'APPROVED',
+          },
+        });
+        results.created++;
+      } catch (rowErr) {
+        const message = rowErr.issues?.map((i) => i.message).join('; ') || rowErr.message;
+        results.errors.push({ row: rowNumber, name: raw.name || '(vide)', reason: message });
+      }
+    }
+
+    res.json(results);
   } catch (err) {
     next(err);
   }

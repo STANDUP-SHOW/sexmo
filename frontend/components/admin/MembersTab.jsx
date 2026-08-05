@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { apiFetch, mediaUrl } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { GENDER_LABELS, ORIENTATION_LABELS } from '../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
+import { PRACTICE_CATEGORIES } from '../../lib/practices';
 
 const STATUS_LABELS = { ACTIVE: 'Actif', SUSPENDED: 'Suspendu', BANNED: 'Banni' };
 const STATUS_COLORS = { ACTIVE: 'bg-green-700 text-white', SUSPENDED: 'bg-yellow-600 text-white', BANNED: 'bg-red-700 text-white' };
@@ -109,6 +110,7 @@ function MemberDetail({ id, onBack }) {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [batchNotice, setBatchNotice] = useState('');
 
   const load = () => {
     apiFetch(`/api/admin/members/${id}`).then((d) => setMember(d.member)).catch((e) => setError(e.message));
@@ -152,9 +154,45 @@ function MemberDetail({ id, onBack }) {
     }
   };
 
+  const uploadPhotos = async (files, isPrivate) => {
+    if (!files || files.length === 0) return;
+    if (files.length === 1) return uploadPhoto(files[0], isPrivate);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      Array.from(files).forEach((f) => fd.append('photos', f));
+      fd.append('isPrivate', String(isPrivate));
+      const { notice } = await apiFetch(`/api/admin/members/${id}/photos/batch`, { method: 'POST', body: fd });
+      if (notice) { setError(''); setBatchNotice(notice); setTimeout(() => setBatchNotice(''), 6000); }
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const featurePhoto = async (photoId) => {
+    await apiFetch(`/api/photos/${photoId}/feature`, { method: 'PATCH' });
+    load();
+  };
+
   const deletePhoto = async (photoId) => {
     await apiFetch(`/api/photos/${photoId}`, { method: 'DELETE' });
     load();
+  };
+
+  const togglePractice = (key) => {
+    const current = member.profile.practices || [];
+    const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+    patch({ practices: next });
+  };
+
+  const toggleSeeking = (g) => {
+    const current = member.profile.seeking || [];
+    const next = current.includes(g) ? current.filter((k) => k !== g) : [...current, g];
+    if (next.length === 0) return;
+    patch({ seeking: next });
   };
 
   const deleteVideo = async (videoId) => {
@@ -197,13 +235,109 @@ function MemberDetail({ id, onBack }) {
               <label className="text-sm text-neutral-400">Ville</label>
               <input className="input" defaultValue={member.profile.city} onBlur={(e) => patch({ city: e.target.value })} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-neutral-400">Genre</label>
+                <select className="input" value={member.profile.gender} onChange={(e) => patch({ gender: e.target.value })}>
+                  {Object.entries(GENDER_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400">Orientation</label>
+                <select className="input" value={member.profile.orientation} onChange={(e) => patch({ orientation: e.target.value })}>
+                  {Object.entries(ORIENTATION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400">Recherche (genres)</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {Object.entries(GENDER_LABELS).map(([k, v]) => (
+                  <button type="button" key={k} onClick={() => toggleSeeking(k)}
+                    className={`text-xs rounded-full px-3 py-1.5 border transition ${
+                      (member.profile.seeking || []).includes(k) ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600'
+                    }`}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-neutral-400">Silhouette</label>
+                <select className="input" value={member.profile.bodyType || ''} onChange={(e) => patch({ bodyType: e.target.value || null })}>
+                  <option value="">Non précisé</option>
+                  {Object.entries(BODY_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400">Couleur des yeux</label>
+                <select className="input" value={member.profile.eyeColor || ''} onChange={(e) => patch({ eyeColor: e.target.value || null })}>
+                  <option value="">Non précisé</option>
+                  {Object.entries(EYE_COLOR_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400">Catégorie d'annonce</label>
+              <select className="input" value={member.profile.adCategory || ''} onChange={(e) => patch({ adCategory: e.target.value || null })}>
+                <option value="">Non précisé</option>
+                {Object.entries(AD_CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400">Badge de niveau</label>
+              <select className="input" value={member.profile.experienceLevel || ''} onChange={(e) => patch({ experienceLevel: e.target.value || null })}>
+                <option value="">Aucun badge</option>
+                {Object.entries(EXPERIENCE_LEVEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
             <div>
               <label className="text-sm text-neutral-400">Bio / annonce</label>
               <textarea className="input" rows={3} defaultValue={member.profile.bio} onBlur={(e) => patch({ bio: e.target.value })} />
             </div>
+            <div>
+              <label className="text-sm text-neutral-400">Centres d'intérêt (séparés par des virgules)</label>
+              <input className="input" defaultValue={(member.profile.interests || []).join(', ')}
+                onBlur={(e) => patch({ interests: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-neutral-700 mb-2">Pratiques</h3>
+              <div className="space-y-3">
+                {PRACTICE_CATEGORIES.map((cat) => (
+                  <div key={cat.key}>
+                    <p className="text-xs text-neutral-500 mb-1">{cat.label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {cat.practices.map((p) => {
+                        const checked = (member.profile.practices || []).includes(p.key);
+                        return (
+                          <button type="button" key={p.key} onClick={() => togglePractice(p.key)}
+                            className={`text-xs rounded-full px-3 py-1.5 border transition ${
+                              checked ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600'
+                            }`}>
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400">Qui peut voir les photos privées</label>
+              <select className="input" value={member.profile.privatePhotosAccess} onChange={(e) => patch({ privatePhotosAccess: e.target.value })}>
+                <option value="ON_REQUEST">Sur demande</option>
+                <option value="EVERYONE">Tout le monde</option>
+              </select>
+            </div>
             <label className="flex items-center gap-2 text-sm text-neutral-400">
               <input type="checkbox" checked={member.profile.visible} onChange={(e) => patch({ visible: e.target.checked })} />
               Profil public
+            </label>
+            <label className="flex items-center gap-2 text-sm text-neutral-400">
+              <input type="checkbox" checked={member.profile.available} onChange={(e) => patch({ available: e.target.checked })} />
+              Se déclare disponible pour discuter maintenant
             </label>
           </>
         )}
@@ -212,22 +346,37 @@ function MemberDetail({ id, onBack }) {
 
       {member.profile && (
         <div className="card space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="font-semibold">Photos ({member.profile.photos?.length || 0})</h3>
-            <label className="btn-secondary text-sm cursor-pointer">
-              {uploading ? 'Envoi...' : 'Ajouter une photo'}
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploading}
-                onChange={(e) => { e.target.files[0] && uploadPhoto(e.target.files[0], false); e.target.value = ''; }} />
-            </label>
+            <div className="flex gap-2">
+              <label className="btn-secondary text-sm cursor-pointer">
+                {uploading ? 'Envoi...' : 'Ajouter des photos'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" disabled={uploading}
+                  onChange={(e) => { uploadPhotos(e.target.files, false); e.target.value = ''; }} />
+              </label>
+              <label className="btn-secondary text-sm cursor-pointer">
+                Importer un dossier
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple webkitdirectory="" directory="" className="hidden" disabled={uploading}
+                  onChange={(e) => { uploadPhotos(e.target.files, false); e.target.value = ''; }} />
+              </label>
+            </div>
           </div>
+          {batchNotice && <p className="text-xs text-brand-600">{batchNotice}</p>}
+          <p className="text-xs text-neutral-500">La 1ère photo publique (encadrée) sert de vignette principale sur les cartes du site.</p>
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-            {(member.profile.photos || []).map((p) => (
-              <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden border border-neutral-200">
-                <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
-                <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white rounded px-1">{p.isPrivate ? 'privée' : p.moderationStatus}</span>
-                <button onClick={() => deletePhoto(p.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
-              </div>
-            ))}
+            {(member.profile.photos || []).map((p, i) => {
+              const isFirstPublic = !p.isPrivate && i === (member.profile.photos || []).findIndex((x) => !x.isPrivate);
+              return (
+                <div key={p.id} className={`relative aspect-square rounded-lg overflow-hidden border ${isFirstPublic ? 'border-brand-500 ring-2 ring-brand-300' : 'border-neutral-200'}`}>
+                  <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
+                  <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white rounded px-1">{p.isPrivate ? 'privée' : p.moderationStatus}</span>
+                  {!p.isPrivate && !isFirstPublic && (
+                    <button onClick={() => featurePhoto(p.id)} className="absolute top-1 right-1 text-[9px] bg-black/70 text-white rounded px-1 hover:bg-black">Mettre en avant</button>
+                  )}
+                  <button onClick={() => deletePhoto(p.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
+                </div>
+              );
+            })}
           </div>
 
           {(member.profile.videos || []).length > 0 && (

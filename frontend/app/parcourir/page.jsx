@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch, mediaUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { GENDER_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
 import CityAutocomplete from '../../components/CityAutocomplete';
+import ProfileCardPhotos from '../../components/ProfileCardPhotos';
 
 export default function ParcourirPage() {
   const [meta, setMeta] = useState({ cities: [], bodyTypes: [], eyeColors: [], adCategories: [] });
@@ -77,24 +78,7 @@ export default function ParcourirPage() {
       <div className="grid sm:grid-cols-3 md:grid-cols-4 gap-4">
         {profiles.map((p) => (
           <Link key={p.id} href={`/parcourir/${p.id}`} className="card p-0 overflow-hidden block">
-            <div className="relative">
-              {p.available && (
-                <span className="absolute top-2 right-2 z-10 flex items-center gap-1 text-[10px] bg-white/90 text-green-700 rounded-full px-2 py-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Disponible
-                </span>
-              )}
-              {p.photos.length > 0 ? (
-                <div className="grid grid-cols-5 gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="aspect-square bg-neutral-200">
-                      {p.photos[i] && <img src={mediaUrl(p.photos[i].url)} alt="" className="w-full h-full object-cover" />}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="aspect-[3/4] w-full flex items-center justify-center bg-neutral-200 text-neutral-600 text-xs">Pas de photo</div>
-              )}
-            </div>
+            <ProfileCardPhotos photos={p.photos} available={p.available} />
             <div className="p-3">
               <p className="font-medium">{p.pseudo}, {p.age ?? '—'} {p.experienceLevel && <span className="text-sm">{EXPERIENCE_LEVEL_LABELS[p.experienceLevel]}</span>}</p>
               <p className="text-xs text-neutral-500">{p.city} · {GENDER_LABELS[p.gender]}</p>

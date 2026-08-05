@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, API_URL, getToken } from '../../lib/api';
 
 const STATUS_LABELS = { PENDING: 'en attente', APPROVED: 'validé', REJECTED: 'refusé' };
 const STATUS_COLORS = { PENDING: 'bg-yellow-600 text-white', APPROVED: 'bg-green-700 text-white', REJECTED: 'bg-red-700 text-white' };
@@ -10,12 +10,40 @@ export default function TestimonialsTab() {
   const [testimonials, setTestimonials] = useState([]);
   const [replyDrafts, setReplyDrafts] = useState({});
   const [showAdd, setShowAdd] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError] = useState('');
 
   const load = () => {
     apiFetch('/api/admin/testimonials').then((d) => setTestimonials(d.testimonials)).catch(() => {});
   };
 
   useEffect(load, []);
+
+  const downloadTemplate = () => {
+    const url = `${API_URL}/api/admin/testimonials/import/template?token=${encodeURIComponent(getToken())}`;
+    window.open(url, '_blank');
+  };
+
+  const submitImport = async (e) => {
+    e.preventDefault();
+    if (!importFile) return;
+    setImporting(true);
+    setImportError('');
+    setImportResult(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', importFile);
+      const data = await apiFetch('/api/admin/testimonials/import', { method: 'POST', body: fd });
+      setImportResult(data);
+      load();
+    } catch (err) {
+      setImportError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const moderate = async (id, status) => {
     const { testimonial } = await apiFetch(`/api/admin/testimonials/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
@@ -38,6 +66,30 @@ export default function TestimonialsTab() {
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Avis ({testimonials.length})</h2>
         <button className="btn-primary text-sm" onClick={() => setShowAdd(true)}>Ajouter un avis</button>
+      </div>
+
+      <div className="card space-y-3">
+        <h3 className="font-semibold text-sm">Import d'avis en masse</h3>
+        <p className="text-xs text-neutral-500">
+          Fichier Excel (.xlsx), CSV ou TXT avec une ligne d'en-têtes. Colonnes : <code>authorEmail</code> (doit correspondre à un
+          membre déjà inscrit — jamais d'auteur inventé), <code>rating</code> (1 à 5), <code>content</code>.
+        </p>
+        <button type="button" className="btn-secondary text-sm" onClick={downloadTemplate}>Télécharger un modèle CSV</button>
+        <form onSubmit={submitImport} className="flex items-center gap-3">
+          <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(e) => setImportFile(e.target.files[0] || null)} />
+          <button className="btn-primary text-sm" disabled={!importFile || importing}>{importing ? 'Import...' : 'Importer'}</button>
+        </form>
+        {importError && <p className="text-sm text-red-600">{importError}</p>}
+        {importResult && (
+          <div className="space-y-2">
+            <p className="text-sm text-green-600">{importResult.created} avis créé(s).</p>
+            {importResult.errors.length > 0 && (
+              <div className="text-xs text-neutral-600 space-y-1 max-h-48 overflow-y-auto">
+                {importResult.errors.map((e, i) => <p key={i}>Ligne {e.row} ({e.authorEmail}) : {e.reason}</p>)}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

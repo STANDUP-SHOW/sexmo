@@ -42,6 +42,7 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [batchNotice, setBatchNotice] = useState('');
   const [error, setError] = useState('');
   const [cropSrc, setCropSrc] = useState(null);
   const [cropTargetPrivate, setCropTargetPrivate] = useState(false);
@@ -187,6 +188,40 @@ export default function ProfilePage() {
     if (!file) return;
     setCropTargetPrivate(isPrivate);
     setCropSrc(URL.createObjectURL(file));
+  };
+
+  // Sélection multiple ou dossier entier : pas de recadrage (trop de photos à
+  // traiter une par une), envoi direct au serveur qui ne garde que ce qu'il
+  // reste de quota (5 publiques / 20 privées) et ignore le reste.
+  const uploadBatch = async (files, isPrivate) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      Array.from(files).forEach((f) => fd.append('photos', f));
+      fd.append('isPrivate', String(isPrivate));
+      const { photos: created, notice } = await apiFetch('/api/photos/batch', { method: 'POST', body: fd });
+      setPhotos((p) => [...p, ...created]);
+      setError('');
+      if (notice) { setSaved(false); setBatchNotice(notice); setTimeout(() => setBatchNotice(''), 6000); }
+      refreshQuality();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onFilesSelected = (files, isPrivate) => {
+    if (!files || files.length === 0) return;
+    if (files.length === 1) return onFileSelected(files[0], isPrivate);
+    uploadBatch(files, isPrivate);
+  };
+
+  const featurePhoto = async (id) => {
+    const { photos: updated } = await apiFetch(`/api/photos/${id}/feature`, { method: 'PATCH' });
+    setPhotos(updated);
   };
 
   const closeCrop = () => {
@@ -423,16 +458,18 @@ export default function ProfilePage() {
         </section>
       )}
 
+      {batchNotice && <p className="text-sm text-brand-600 -mb-4">{batchNotice}</p>}
+
       <PhotoGrid
         title="Photos publiques" max={MAX_PUBLIC_PHOTOS} photos={publicPhotos}
-        uploading={uploading} onFileSelected={(f) => onFileSelected(f, false)} onDelete={deletePhoto}
-        onToggleGallery={toggleGalleryPhoto}
-        hint="Une photo publique approuvée peut en plus être publiée dans la galerie « Photos des membres » du site."
+        uploading={uploading} onFilesSelected={(files) => onFilesSelected(files, false)} onDelete={deletePhoto}
+        onToggleGallery={toggleGalleryPhoto} onFeature={featurePhoto}
+        hint="La 1ère photo (mise en avant) sert de vignette principale. Une photo approuvée peut en plus être publiée dans la galerie « Photos des membres » du site."
       />
 
       <PhotoGrid
         title="Photos privées" max={MAX_PRIVATE_PHOTOS} photos={privatePhotos}
-        uploading={uploading} onFileSelected={(f) => onFileSelected(f, true)} onDelete={deletePhoto}
+        uploading={uploading} onFilesSelected={(files) => onFilesSelected(files, true)} onDelete={deletePhoto}
         hint="Visibles selon le réglage ci-dessus (tout le monde ou sur demande)."
       />
 
@@ -478,26 +515,42 @@ export default function ProfilePage() {
   );
 }
 
-function PhotoGrid({ title, max, photos, uploading, onFileSelected, onDelete, onToggleGallery, hint }) {
+function PhotoGrid({ title, max, photos, uploading, onFilesSelected, onDelete, onToggleGallery, onFeature, hint }) {
   return (
     <section className="card space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="font-semibold">{title} ({photos.length}/{max})</h2>
-        <label className="btn-secondary text-sm cursor-pointer">
-          {uploading ? 'Envoi...' : 'Ajouter'}
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-            disabled={uploading || photos.length >= max}
-            onChange={(e) => { onFileSelected(e.target.files[0]); e.target.value = ''; }} />
-        </label>
+        <div className="flex gap-2">
+          <label className="btn-secondary text-sm cursor-pointer">
+            {uploading ? 'Envoi...' : 'Ajouter des photos'}
+            <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden"
+              disabled={uploading || photos.length >= max}
+              onChange={(e) => { onFilesSelected(e.target.files); e.target.value = ''; }} />
+          </label>
+          <label className="btn-secondary text-sm cursor-pointer">
+            Importer un dossier
+            <input type="file" accept="image/jpeg,image/png,image/webp" multiple webkitdirectory="" directory="" className="hidden"
+              disabled={uploading || photos.length >= max}
+              onChange={(e) => { onFilesSelected(e.target.files); e.target.value = ''; }} />
+          </label>
+        </div>
       </div>
       {hint && <p className="text-xs text-neutral-500">{hint}</p>}
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-        {photos.map((p) => (
-          <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden border border-neutral-200">
+        {photos.map((p, i) => (
+          <div key={p.id} className={`relative aspect-square rounded-lg overflow-hidden border ${i === 0 && onFeature ? 'border-brand-500 ring-2 ring-brand-300' : 'border-neutral-200'}`}>
             <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
             <span className={`absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded ${MODERATION_COLORS[p.moderationStatus]}`}>
               {MODERATION_LABELS[p.moderationStatus]}
             </span>
+            {onFeature && (i === 0 ? (
+              <span className="absolute top-1 right-1 text-[10px] bg-brand-500 text-white rounded px-1.5 py-0.5">Vignette</span>
+            ) : (
+              <button onClick={() => onFeature(p.id)}
+                className="absolute top-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">
+                Mettre en avant
+              </button>
+            ))}
             <button onClick={() => onDelete(p.id)}
               className="absolute bottom-1 right-1 text-[10px] bg-black/70 rounded px-1.5 py-0.5 hover:bg-black">
               Supprimer

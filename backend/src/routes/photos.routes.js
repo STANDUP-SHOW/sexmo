@@ -63,6 +63,54 @@ router.post('/', requireAuth, requireProfile, upload.single('photo'), async (req
   }
 });
 
+// Import multiple (sélection de plusieurs fichiers ou d'un dossier entier
+// depuis l'explorateur du navigateur) : n'accepte que ce qui reste de quota
+// (5 photos publiques / 20 privées par profil), le reste est ignoré et
+// signalé dans la réponse plutôt que de faire échouer tout l'envoi.
+router.post('/batch', requireAuth, requireProfile, upload.array('photos', 25), async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier reçu' });
+
+    const isPrivate = req.body.isPrivate === 'true';
+    const max = isPrivate ? MAX_PRIVATE_PHOTOS : MAX_PUBLIC_PHOTOS;
+    let count = await prisma.photo.count({ where: { profileId: req.user.profile.id, isPrivate } });
+
+    const created = [];
+    let skipped = 0;
+
+    for (const file of req.files) {
+      if (count >= max) { skipped++; continue; }
+
+      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+      const filename = `${crypto.randomUUID()}${ext}`;
+      await mediaStorage.uploadBuffer(file.buffer, filename);
+
+      const photo = await prisma.photo.create({
+        data: {
+          profileId: req.user.profile.id,
+          url: `/media/photos/${filename}`,
+          isPrivate,
+          position: count,
+          publishedToGallery: false,
+          moderationStatus: 'PENDING',
+        },
+      });
+      created.push(photo);
+      count++;
+    }
+
+    res.status(201).json({
+      photos: created,
+      skipped,
+      notice: skipped > 0
+        ? `${created.length} photo(s) envoyée(s), ${skipped} ignorée(s) (limite de ${max} photos ${isPrivate ? 'privées' : 'publiques'} atteinte).`
+        : `${created.length} photo(s) envoyée(s).`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
@@ -77,6 +125,34 @@ router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next)
       data: { publishedToGallery: !!req.body.publishedToGallery },
     });
     res.json({ photo: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Met une photo publique en position 0 : c'est elle qui sert de vignette
+// principale (cartes de découverte/parcours/annonces).
+router.patch('/:id/feature', requireAuth, async (req, res, next) => {
+  try {
+    const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
+    const isOwner = photo && req.user.profile && photo.profileId === req.user.profile.id;
+    const isAdmin = req.user.role === 'ADMIN';
+    if (!photo || (!isOwner && !isAdmin)) {
+      return res.status(404).json({ error: 'Photo introuvable' });
+    }
+    if (photo.isPrivate) {
+      return res.status(400).json({ error: 'Seule une photo publique peut être mise en avant' });
+    }
+    const siblings = await prisma.photo.findMany({
+      where: { profileId: photo.profileId, isPrivate: false },
+      orderBy: { position: 'asc' },
+    });
+    const reordered = [photo.id, ...siblings.filter((p) => p.id !== photo.id).map((p) => p.id)];
+    await prisma.$transaction(
+      reordered.map((id, index) => prisma.photo.update({ where: { id }, data: { position: index } }))
+    );
+    const updated = await prisma.photo.findMany({ where: { profileId: photo.profileId }, orderBy: { position: 'asc' } });
+    res.json({ photos: updated });
   } catch (err) {
     next(err);
   }

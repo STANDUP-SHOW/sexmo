@@ -13,6 +13,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { signToken, signMediaToken } = require('../utils/jwt');
 const { computeAge, MIN_AGE } = require('../utils/age');
 const mediaStorage = require('../services/mediaStorage');
+const { ALL_PRACTICE_KEYS } = require('../constants/practices');
 
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
@@ -133,9 +134,23 @@ router.post('/', async (req, res, next) => {
 const patchSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED', 'BANNED']).optional(),
   pseudo: z.string().min(2).max(30).optional(),
+  gender: z.enum(GENDERS).optional(),
+  orientation: z.enum(ORIENTATIONS).optional(),
+  seeking: z.array(z.enum(GENDERS)).min(1).optional(),
   city: z.string().min(1).optional(),
+  region: z.string().optional(),
   bio: z.string().max(1000).optional(),
+  interests: z.array(z.string()).optional(),
+  practices: z.array(z.enum(ALL_PRACTICE_KEYS)).optional(),
+  bodyType: z.enum(['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE']).nullable().optional(),
+  eyeColor: z.enum(['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE']).nullable().optional(),
+  adCategory: z.enum(['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE']).nullable().optional(),
+  experienceLevel: z.enum(['DEBUTANT', 'AMATEUR', 'EXPERIMENTE', 'EXPERT']).nullable().optional(),
   visible: z.boolean().optional(),
+  available: z.boolean().optional(),
+  privatePhotosAccess: z.enum(['EVERYONE', 'ON_REQUEST']).optional(),
+  useGeolocation: z.boolean().optional(),
+  radiusKm: z.number().int().min(0).max(300).optional(),
 });
 
 router.patch('/:id', async (req, res, next) => {
@@ -199,6 +214,9 @@ const upload = multer({
   },
 });
 
+const MAX_PUBLIC_PHOTOS = 5;
+const MAX_PRIVATE_PHOTOS = 20;
+
 router.post('/:id/photos', upload.single('photo'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
@@ -206,7 +224,14 @@ router.post('/:id/photos', upload.single('photo'), async (req, res, next) => {
     if (!profile) return res.status(404).json({ error: 'Ce membre n\'a pas encore de profil' });
 
     const isPrivate = req.body.isPrivate === 'true';
-    const count = await prisma.photo.count({ where: { profileId: profile.id } });
+    const max = isPrivate ? MAX_PRIVATE_PHOTOS : MAX_PUBLIC_PHOTOS;
+    const count = await prisma.photo.count({ where: { profileId: profile.id, isPrivate } });
+    if (count >= max) {
+      return res.status(400).json({
+        error: isPrivate ? `Maximum ${MAX_PRIVATE_PHOTOS} photos privées par profil` : `Maximum ${MAX_PUBLIC_PHOTOS} photos publiques par profil`,
+      });
+    }
+
     const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
     const filename = `${crypto.randomUUID()}${ext}`;
     await mediaStorage.uploadBuffer(req.file.buffer, filename);
@@ -227,6 +252,53 @@ router.post('/:id/photos', upload.single('photo'), async (req, res, next) => {
   }
 });
 
+// Import multiple / dossier entier : ne prend que ce qui reste de quota
+// (5 publiques / 20 privées), le reste est ignoré et signalé.
+router.post('/:id/photos/batch', upload.array('photos', 25), async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier reçu' });
+    const profile = await prisma.profile.findUnique({ where: { userId: req.params.id } });
+    if (!profile) return res.status(404).json({ error: 'Ce membre n\'a pas encore de profil' });
+
+    const isPrivate = req.body.isPrivate === 'true';
+    const max = isPrivate ? MAX_PRIVATE_PHOTOS : MAX_PUBLIC_PHOTOS;
+    let count = await prisma.photo.count({ where: { profileId: profile.id, isPrivate } });
+
+    const created = [];
+    let skipped = 0;
+
+    for (const file of req.files) {
+      if (count >= max) { skipped++; continue; }
+
+      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+      const filename = `${crypto.randomUUID()}${ext}`;
+      await mediaStorage.uploadBuffer(file.buffer, filename);
+
+      const photo = await prisma.photo.create({
+        data: {
+          profileId: profile.id,
+          url: `/media/photos/${filename}`,
+          isPrivate,
+          position: count,
+          moderationStatus: 'APPROVED',
+        },
+      });
+      created.push(photo);
+      count++;
+    }
+
+    res.status(201).json({
+      photos: created,
+      skipped,
+      notice: skipped > 0
+        ? `${created.length} photo(s) ajoutée(s), ${skipped} ignorée(s) (limite de ${max} photos ${isPrivate ? 'privées' : 'publiques'} atteinte).`
+        : `${created.length} photo(s) ajoutée(s).`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Import en masse (Excel .xlsx, CSV, ou TXT délimité par virgule/tabulation) ---
 //
 // Colonnes attendues (première ligne = en-têtes, dans n'importe quel ordre) :
@@ -241,11 +313,20 @@ router.post('/:id/photos', upload.single('photo'), async (req, res, next) => {
 //                 séparées par un point-virgule, ex. "HOMME;COUPLE_HOMME_FEMME")
 //   city         (obligatoire)
 //   bio          (optionnel)
+//   photoPrefix  (optionnel — voir import groupé des photos ci-dessous)
+//
+// Import groupé des photos : en plus du fichier de données, l'admin peut
+// joindre un lot de fichiers photo (jusqu'à 5 par membre, le reste est
+// ignoré). Chaque photo doit être nommée "<prefix>-photoN.ext" (N = 1 à 5),
+// où <prefix> est la colonne "photoPrefix" de la ligne si présente, sinon
+// le "pseudo". La comparaison ignore la casse, les accents et tout
+// caractère qui n'est pas une lettre/chiffre (ex. "Jeanne D." et
+// "jeanne_d-photo1.jpg" correspondent).
 const REQUIRED_IMPORT_COLUMNS = ['email', 'password', 'pseudo', 'birthDate', 'gender', 'orientation', 'seeking', 'city'];
 
 router.get('/import/template', (req, res) => {
-  const header = [...REQUIRED_IMPORT_COLUMNS, 'bio'];
-  const example = ['jeanne.d@example.com', 'MotDePasse8', 'JeanneD', '1990-05-14', 'FEMME', 'BI', 'HOMME;COUPLE_HOMME_FEMME', 'Lyon', 'Curieuse et ouverte d\'esprit.'];
+  const header = [...REQUIRED_IMPORT_COLUMNS, 'bio', 'photoPrefix'];
+  const example = ['jeanne.d@example.com', 'MotDePasse8', 'JeanneD', '1990-05-14', 'FEMME', 'BI', 'HOMME;COUPLE_HOMME_FEMME', 'Lyon', 'Curieuse et ouverte d\'esprit.', 'jeanne_d'];
   const csv = [header.join(','), example.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="modele-import-membres.csv"');
@@ -254,13 +335,21 @@ router.get('/import/template', (req, res) => {
 
 const importUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedExt = ['.xlsx', '.xls', '.csv', '.txt'];
-    if (!allowedExt.includes(path.extname(file.originalname).toLowerCase())) {
-      return cb(new Error('Format non supporté (xlsx, xls, csv ou txt uniquement)'));
+    if (file.fieldname === 'file') {
+      const allowedExt = ['.xlsx', '.xls', '.csv', '.txt'];
+      if (!allowedExt.includes(path.extname(file.originalname).toLowerCase())) {
+        return cb(new Error('Fichier de données : format non supporté (xlsx, xls, csv ou txt uniquement)'));
+      }
+      return cb(null, true);
     }
-    cb(null, true);
+    if (file.fieldname === 'photos') {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowed.includes(file.mimetype)) return cb(new Error('Photos : format non supporté (jpeg, png ou webp uniquement)'));
+      return cb(null, true);
+    }
+    cb(new Error('Champ de fichier inattendu'));
   },
 });
 
@@ -273,13 +362,35 @@ const importRowSchema = z.object({
   orientation: z.enum(ORIENTATIONS, { errorMap: () => ({ message: `orientation invalide (attendu : ${ORIENTATIONS.join(', ')})` }) }),
   city: z.string().trim().min(1),
   bio: z.string().trim().max(1000).optional(),
+  photoPrefix: z.string().trim().optional(),
 });
 
-router.post('/import', importUpload.single('file'), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+// Normalise un nom pour la correspondance photo <-> membre : minuscules,
+// accents retirés, tout ce qui n'est pas alphanumérique supprimé.
+function normalizeForMatch(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
 
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+const PHOTO_FILENAME_RE = /^(.*)-photo(\d+)\.[a-zA-Z0-9]+$/;
+
+router.post('/import', importUpload.fields([{ name: 'file', maxCount: 1 }, { name: 'photos', maxCount: 2000 }]), async (req, res, next) => {
+  try {
+    const dataFile = req.files?.file?.[0];
+    if (!dataFile) return res.status(400).json({ error: 'Aucun fichier de données reçu' });
+    const photoFiles = req.files?.photos || [];
+
+    const parsedPhotos = photoFiles
+      .map((f) => {
+        const m = f.originalname.match(PHOTO_FILENAME_RE);
+        if (!m) return null;
+        return { file: f, prefix: normalizeForMatch(m[1]), num: parseInt(m[2], 10) };
+      })
+      .filter(Boolean);
+
+    const workbook = XLSX.read(dataFile.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
 
@@ -287,7 +398,7 @@ router.post('/import', importUpload.single('file'), async (req, res, next) => {
       return res.status(400).json({ error: 'Le fichier ne contient aucune ligne de données (vérifiez la ligne d\'en-têtes).' });
     }
 
-    const results = { created: 0, errors: [] };
+    const results = { created: 0, photosImported: 0, errors: [] };
 
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 2; // +1 pour l'en-tête, +1 pour l'index 0-based
@@ -311,7 +422,7 @@ router.post('/import', importUpload.single('file'), async (req, res, next) => {
 
         const passwordHash = await bcrypt.hash(data.password, 10);
         const now = new Date();
-        await prisma.user.create({
+        const user = await prisma.user.create({
           data: {
             email: data.email,
             passwordHash,
@@ -329,8 +440,32 @@ router.post('/import', importUpload.single('file'), async (req, res, next) => {
               },
             },
           },
+          include: { profile: true },
         });
         results.created++;
+
+        const prefix = normalizeForMatch(data.photoPrefix || data.pseudo);
+        const matches = parsedPhotos
+          .filter((p) => p.prefix === prefix)
+          .sort((a, b) => a.num - b.num)
+          .slice(0, MAX_PUBLIC_PHOTOS);
+
+        let position = 0;
+        for (const m of matches) {
+          const ext = path.extname(m.file.originalname).toLowerCase() || '.jpg';
+          const filename = `${crypto.randomUUID()}${ext}`;
+          await mediaStorage.uploadBuffer(m.file.buffer, filename);
+          await prisma.photo.create({
+            data: {
+              profileId: user.profile.id,
+              url: `/media/photos/${filename}`,
+              isPrivate: false,
+              position: position++,
+              moderationStatus: 'APPROVED',
+            },
+          });
+          results.photosImported++;
+        }
       } catch (rowErr) {
         const message = rowErr.issues?.map((i) => i.message).join('; ') || rowErr.message;
         results.errors.push({ row: rowNumber, email: raw.email || '(vide)', reason: message });
