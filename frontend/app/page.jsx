@@ -26,10 +26,10 @@ export default function HomePage() {
 
       <section className="text-center py-16 space-y-6">
         <h1 className="text-4xl font-extrabold text-neutral-900">
-          Rencontres <span className="text-brand-500">libertines</span> entre adultes consentants
+          Entre <span className="text-brand-500">adultes</span> consentants
         </h1>
         <p className="text-neutral-400 max-w-xl mx-auto">
-          {tagline || "Célibataires et couples ouverts d'esprit, partout en France. Créez votre profil, ajoutez jusqu'à 20 photos, échangez en toute discrétion."}
+          {tagline || "Web Appli de rencontres gratuite pour adultes, petites annonces, profils hot non censurés..."}
         </p>
         <div className="flex justify-center gap-3">
           {user ? (
