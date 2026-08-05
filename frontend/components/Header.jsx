@@ -39,6 +39,7 @@ export default function Header() {
           </nav>
         ) : (
           <nav className="flex items-center gap-3 text-sm text-neutral-200">
+            <Link href="/parcourir" className="hover:text-brand-400">Parcourir</Link>
             <Link href="/login" className="hover:text-brand-400">Connexion</Link>
             <Link href="/signup" className="btn-primary text-sm px-3 py-1.5">Inscription</Link>
           </nav>

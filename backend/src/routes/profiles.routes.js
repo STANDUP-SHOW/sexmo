@@ -21,7 +21,10 @@ const updateSchema = z.object({
   bio: z.string().max(1000).optional(),
   interests: z.array(z.string()).optional(),
   practices: z.array(z.enum(ALL_PRACTICE_KEYS)).optional(),
+  bodyType: z.enum(['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE']).nullable().optional(),
+  eyeColor: z.enum(['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE']).nullable().optional(),
   visible: z.boolean().optional(),
+  available: z.boolean().optional(),
   privatePhotosAccess: z.enum(['EVERYONE', 'ON_REQUEST']).optional(),
 });
 
@@ -57,6 +60,9 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
     bio: profile.bio,
     interests: profile.interests,
     practices: profile.practices,
+    bodyType: profile.bodyType,
+    eyeColor: profile.eyeColor,
+    available: profile.available,
     age: ownerBirthDate ? computeAge(ownerBirthDate) : null,
     lastActiveAt: profile.lastActiveAt,
     memberSinceDays: Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / MS_PER_DAY),

@@ -8,6 +8,7 @@ import { getCroppedImageBlob } from '../../lib/cropImage';
 import PhotoCropModal from '../../components/PhotoCropModal';
 import CityAutocomplete from '../../components/CityAutocomplete';
 import { PRACTICE_CATEGORIES } from '../../lib/practices';
+import { BODY_TYPE_LABELS, EYE_COLOR_LABELS } from '../../lib/enums';
 
 const MAX_PUBLIC_PHOTOS = 5;
 const MAX_PRIVATE_PHOTOS = 20;
@@ -23,7 +24,10 @@ export default function ProfilePage() {
   const [city, setCity] = useState('');
   const [interestsText, setInterestsText] = useState('');
   const [practices, setPractices] = useState([]);
+  const [bodyType, setBodyType] = useState('');
+  const [eyeColor, setEyeColor] = useState('');
   const [visible, setVisible] = useState(true);
+  const [available, setAvailable] = useState(false);
   const [privatePhotosAccess, setPrivatePhotosAccess] = useState('ON_REQUEST');
   const [photos, setPhotos] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -54,7 +58,10 @@ export default function ProfilePage() {
     setCity(user.profile?.city || '');
     setInterestsText((user.profile?.interests || []).join(', '));
     setPractices(user.profile?.practices || []);
+    setBodyType(user.profile?.bodyType || '');
+    setEyeColor(user.profile?.eyeColor || '');
     setVisible(user.profile?.visible ?? true);
+    setAvailable(user.profile?.available ?? false);
     setPrivatePhotosAccess(user.profile?.privatePhotosAccess || 'ON_REQUEST');
     apiFetch('/api/photos/mine').then((d) => setPhotos(d.photos)).catch(() => {});
     apiFetch('/api/videos/mine').then((d) => setVideos(d.videos)).catch(() => {});
@@ -67,6 +74,17 @@ export default function ProfilePage() {
   const publicPhotos = photos.filter((p) => !p.isPrivate);
   const privatePhotos = photos.filter((p) => p.isPrivate);
 
+  const toggleAvailable = async () => {
+    const next = !available;
+    setAvailable(next);
+    try {
+      await apiFetch('/api/profiles/me', { method: 'PATCH', body: JSON.stringify({ available: next }) });
+    } catch (err) {
+      setAvailable(!next);
+      setError(err.message);
+    }
+  };
+
   const togglePractice = (key) => {
     setPractices((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
   };
@@ -77,7 +95,10 @@ export default function ProfilePage() {
       const interests = interestsText.split(',').map((s) => s.trim()).filter(Boolean);
       await apiFetch('/api/profiles/me', {
         method: 'PATCH',
-        body: JSON.stringify({ bio, city, visible, interests, practices, privatePhotosAccess }),
+        body: JSON.stringify({
+          bio, city, visible, interests, practices, privatePhotosAccess,
+          bodyType: bodyType || null, eyeColor: eyeColor || null,
+        }),
       });
       setSaved(true);
       refreshQuality();
@@ -175,9 +196,18 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Mon profil</h1>
-        <p className="text-sm text-neutral-500">{user.profile?.pseudo} · {user.email}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Mon profil</h1>
+          <p className="text-sm text-neutral-500">{user.profile?.pseudo} · {user.email}</p>
+        </div>
+        <button type="button" onClick={toggleAvailable}
+          className={`flex items-center gap-2 text-sm rounded-full px-3 py-1.5 border transition ${
+            available ? 'bg-green-50 border-green-300 text-green-700' : 'border-neutral-300 text-neutral-500'
+          }`}>
+          <span className={`w-2.5 h-2.5 rounded-full ${available ? 'bg-green-500' : 'bg-neutral-300'}`} />
+          {available ? 'Disponible pour discuter' : 'Se déclarer disponible'}
+        </button>
       </div>
 
       <section className="card space-y-4">
@@ -185,6 +215,22 @@ export default function ProfilePage() {
         <div>
           <label className="text-sm text-neutral-400">Ville</label>
           <CityAutocomplete value={city} onChange={setCity} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm text-neutral-400">Silhouette</label>
+            <select className="input" value={bodyType} onChange={(e) => setBodyType(e.target.value)}>
+              <option value="">Non précisé</option>
+              {Object.entries(BODY_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm text-neutral-400">Couleur des yeux</label>
+            <select className="input" value={eyeColor} onChange={(e) => setEyeColor(e.target.value)}>
+              <option value="">Non précisé</option>
+              {Object.entries(EYE_COLOR_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
         </div>
         <div>
           <label className="text-sm text-neutral-400">Votre annonce</label>
@@ -205,7 +251,7 @@ export default function ProfilePage() {
         </div>
         <label className="flex items-center gap-2 text-sm text-neutral-400">
           <input type="checkbox" checked={visible} onChange={(e) => setVisible(e.target.checked)} />
-          Profil visible dans la recherche
+          Profil public (visible dans la recherche et par les visiteurs sans compte). Décochez pour le masquer.
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex items-center gap-3">

@@ -1,0 +1,6 @@
+CREATE TYPE "BodyType" AS ENUM ('ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE');
+CREATE TYPE "EyeColor" AS ENUM ('MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE');
+
+ALTER TABLE "profiles" ADD COLUMN "bodyType" "BodyType";
+ALTER TABLE "profiles" ADD COLUMN "eyeColor" "EyeColor";
+ALTER TABLE "profiles" ADD COLUMN "available" BOOLEAN NOT NULL DEFAULT false;

@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../config/prisma');
-const { requireAuth } = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 const mediaStorage = require('../services/mediaStorage');
 
 const router = express.Router();
@@ -40,7 +40,7 @@ function streamFile(res, filename, contentType) {
 const IMAGE_CONTENT_TYPES = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 const VIDEO_CONTENT_TYPES = { '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm' };
 
-router.get('/photos/:filename', requireAuth, async (req, res, next) => {
+router.get('/photos/:filename', optionalAuth, async (req, res, next) => {
   try {
     const filename = req.params.filename;
     const photo = await prisma.photo.findFirst({
@@ -49,15 +49,22 @@ router.get('/photos/:filename', requireAuth, async (req, res, next) => {
     });
     if (!photo) return res.status(404).json({ error: 'Photo introuvable' });
 
-    const isOwner = req.user.profile?.id === photo.profileId;
-    const isAdmin = req.user.role === 'ADMIN';
+    const isOwner = req.user?.profile?.id === photo.profileId;
+    const isAdmin = req.user?.role === 'ADMIN';
 
     if (!isOwner && !isAdmin) {
       if (photo.moderationStatus !== 'APPROVED') return res.status(404).json({ error: 'Photo introuvable' });
-      if (await isBlocked(req.user.profile?.id, photo.profileId)) return res.status(404).json({ error: 'Photo introuvable' });
       if (photo.isPrivate) {
-        const allowed = req.user.profile && (await canViewPrivatePhotos(photo.profile, req.user.profile.id));
+        // Photo privée : jamais accessible sans compte, même via le parcours public.
+        if (!req.user?.profile) return res.status(403).json({ error: 'Accès à cette photo privée non autorisé' });
+        if (await isBlocked(req.user.profile.id, photo.profileId)) return res.status(404).json({ error: 'Photo introuvable' });
+        const allowed = await canViewPrivatePhotos(photo.profile, req.user.profile.id);
         if (!allowed) return res.status(403).json({ error: 'Accès à cette photo privée non autorisé' });
+      } else if (req.user?.profile && (await isBlocked(req.user.profile.id, photo.profileId))) {
+        return res.status(404).json({ error: 'Photo introuvable' });
+      } else if (!photo.profile.visible) {
+        // Photo publique d'un profil masqué : réservée aux membres connectés (parcours interne).
+        if (!req.user) return res.status(404).json({ error: 'Photo introuvable' });
       }
     }
 
@@ -68,18 +75,23 @@ router.get('/photos/:filename', requireAuth, async (req, res, next) => {
   }
 });
 
-router.get('/videos/:filename', requireAuth, async (req, res, next) => {
+router.get('/videos/:filename', optionalAuth, async (req, res, next) => {
   try {
     const filename = req.params.filename;
-    const video = await prisma.video.findFirst({ where: { url: `/media/videos/${filename}` } });
+    const video = await prisma.video.findFirst({ where: { url: `/media/videos/${filename}` }, include: { profile: true } });
     if (!video) return res.status(404).json({ error: 'Vidéo introuvable' });
 
-    const isOwner = req.user.profile?.id === video.profileId;
-    const isAdmin = req.user.role === 'ADMIN';
+    const isOwner = req.user?.profile?.id === video.profileId;
+    const isAdmin = req.user?.role === 'ADMIN';
 
     if (!isOwner && !isAdmin) {
       if (video.moderationStatus !== 'APPROVED') return res.status(404).json({ error: 'Vidéo introuvable' });
-      if (await isBlocked(req.user.profile?.id, video.profileId)) return res.status(404).json({ error: 'Vidéo introuvable' });
+      if (req.user?.profile && (await isBlocked(req.user.profile.id, video.profileId))) {
+        return res.status(404).json({ error: 'Vidéo introuvable' });
+      }
+      if (!video.profile.visible && !req.user) {
+        return res.status(404).json({ error: 'Vidéo introuvable' });
+      }
     }
 
     const ext = filename.slice(filename.lastIndexOf('.')).toLowerCase();

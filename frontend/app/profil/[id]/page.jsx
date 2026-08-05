@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../../lib/api';
-import { GENDER_LABELS, ORIENTATION_LABELS } from '../../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS } from '../../../lib/enums';
 import { memberSinceLabel } from '../../../lib/format';
 import { PRACTICE_LABELS } from '../../../lib/practices';
 
@@ -92,6 +92,11 @@ export default function ProfileDetailPage() {
         <p className="text-neutral-400">{profile.city} · {GENDER_LABELS[profile.gender]} · {ORIENTATION_LABELS[profile.orientation]}</p>
 
         <div className="flex flex-wrap gap-2 mt-2">
+          {profile.available && (
+            <span className="text-xs bg-green-50 text-green-700 border border-green-300 rounded-full px-2.5 py-1 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Disponible maintenant
+            </span>
+          )}
           {profile.memberSinceDays != null && (
             <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">{memberSinceLabel(profile.memberSinceDays)}</span>
           )}
@@ -100,6 +105,12 @@ export default function ProfileDetailPage() {
           )}
           {profile.reputation?.exemplary && (
             <span className="text-xs bg-brand-500 text-white rounded-full px-2.5 py-1">✓ Membre exemplaire</span>
+          )}
+          {profile.bodyType && (
+            <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">{BODY_TYPE_LABELS[profile.bodyType]}</span>
+          )}
+          {profile.eyeColor && (
+            <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">Yeux {EYE_COLOR_LABELS[profile.eyeColor]}</span>
           )}
         </div>
 

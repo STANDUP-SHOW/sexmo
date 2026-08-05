@@ -27,6 +27,27 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// Comme requireAuth, mais laisse passer les visiteurs non connectés
+// (req.user reste undefined) au lieu de répondre 401 — utilisé par les
+// routes accessibles sans compte (parcours public, médias publics).
+async function optionalAuth(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token || null;
+    if (!token) return next();
+
+    const payload = verifyToken(token);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: { profile: true },
+    });
+    if (user && user.status === 'ACTIVE') req.user = user;
+    next();
+  } catch (err) {
+    next();
+  }
+}
+
 function requireAdmin(req, res, next) {
   if (req.user?.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Réservé aux administrateurs' });
@@ -41,4 +62,4 @@ function requireProfile(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin, requireProfile };
+module.exports = { requireAuth, optionalAuth, requireAdmin, requireProfile };

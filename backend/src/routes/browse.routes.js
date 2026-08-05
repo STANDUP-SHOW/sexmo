@@ -9,14 +9,16 @@ const router = express.Router();
 
 const GENDERS = ['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', 'COUPLE_FEMME_FEMME', 'TRANS', 'NON_BINAIRE', 'AUTRE'];
 const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'AUTRE'];
+const BODY_TYPES = ['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE'];
+const EYE_COLORS = ['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE'];
 
 router.get('/meta', (req, res) => {
-  res.json({ cities: FRENCH_CITIES, genders: GENDERS, orientations: ORIENTATIONS });
+  res.json({ cities: FRENCH_CITIES, genders: GENDERS, orientations: ORIENTATIONS, bodyTypes: BODY_TYPES, eyeColors: EYE_COLORS });
 });
 
 router.get('/', requireAuth, requireProfile, async (req, res, next) => {
   try {
-    const { city, gender, orientation, minAge, maxAge, page = '1' } = req.query;
+    const { city, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, page = '1' } = req.query;
     const pageSize = 24;
     const skip = (Math.max(1, Number(page)) - 1) * pageSize;
 
@@ -34,6 +36,9 @@ router.get('/', requireAuth, requireProfile, async (req, res, next) => {
       id: { notIn: [req.user.profile.id, ...blockedIds] },
       ...(city ? { city } : {}),
       ...(gender ? { gender } : {}),
+      ...(bodyType ? { bodyType } : {}),
+      ...(eyeColor ? { eyeColor } : {}),
+      ...(available === 'true' ? { available: true } : {}),
     };
     if (orientation) where.orientation = orientation;
 

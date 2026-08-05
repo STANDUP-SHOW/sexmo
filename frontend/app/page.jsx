@@ -33,7 +33,7 @@ export default function HomePage() {
           ) : (
             <>
               <Link href="/signup" className="btn-primary">Créer un profil</Link>
-              <Link href="/login" className="btn-secondary">Connexion</Link>
+              <Link href="/parcourir" className="btn-secondary">Parcourir sans compte</Link>
             </>
           )}
         </div>

@@ -41,6 +41,22 @@ enum Orientation {
   AUTRE
 }
 
+enum BodyType {
+  ATHLETIQUE
+  SVELTE
+  MOYENNE
+  ENROBEE
+  RONDE
+}
+
+enum EyeColor {
+  MARRON
+  BLEU
+  VERT
+  GRIS
+  NOISETTE
+}
+
 enum PhotoModerationStatus {
   PENDING
   APPROVED
@@ -116,8 +132,13 @@ model Profile {
   interests String[] @default([])
   // Pratiques cochées par le profil, voir src/constants/practices.js pour la liste fermée.
   practices String[] @default([])
+  bodyType  BodyType?
+  eyeColor  EyeColor?
 
+  // Profil public (recherche interne + parcours sans compte) ou masqué.
   visible      Boolean  @default(true)
+  // Statut auto-déclaré "disponible pour discuter maintenant" (pastille verte).
+  available    Boolean  @default(false)
   lastActiveAt DateTime @default(now())
 
   // Politique d'accès aux photos privées de ce profil (voir PhotoAccessGrant).

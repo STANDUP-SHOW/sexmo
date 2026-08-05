@@ -16,3 +16,19 @@ export const ORIENTATION_LABELS = {
   CURIEUX: 'Curieux·se',
   AUTRE: 'Autre',
 };
+
+export const BODY_TYPE_LABELS = {
+  ATHLETIQUE: 'Athlétique',
+  SVELTE: 'Svelte',
+  MOYENNE: 'Moyenne',
+  ENROBEE: 'Enrobée',
+  RONDE: 'Ronde',
+};
+
+export const EYE_COLOR_LABELS = {
+  MARRON: 'Marron',
+  BLEU: 'Bleu',
+  VERT: 'Vert',
+  GRIS: 'Gris',
+  NOISETTE: 'Noisette',
+};
