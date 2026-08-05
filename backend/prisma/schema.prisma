@@ -402,6 +402,19 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+// Photo envoyée dans une discussion privée du Sexmo Tchat (jamais dans un
+// salon public). Pas de lien vers un membre/profil : les invités peuvent
+// aussi en envoyer. Sert uniquement à autoriser /media/chat-photos/:filename
+// à servir le fichier — la discussion elle-même reste en mémoire (non
+// persistée), voir sockets/chat.js.
+model ChatPhoto {
+  id        String   @id @default(cuid())
+  url       String
+  createdAt DateTime @default(now())
+
+  @@map("chat_photos")
+}
+
 model ChatBan {
   id        String   @id @default(cuid())
   userId    String?

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../lib/AuthContext';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, mediaUrl } from '../../lib/api';
 import { getChatSocket, identifyAsGuest, disconnectChatSocket } from '../../lib/chatSocket';
 import { EXPERIENCE_LEVEL_EMOJI } from '../../lib/enums';
 import AgeGate from '../../components/AgeGate';
@@ -35,6 +35,8 @@ export default function TchatPage() {
   const [threads, setThreads] = useState([]); // {threadId, peer, messages, unread}
   const [activeThreadId, setActiveThreadId] = useState(null); // null = salon public
   const [limitNotice, setLimitNotice] = useState('');
+  const [sendingPhoto, setSendingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -127,6 +129,24 @@ export default function TchatPage() {
       getChatSocket().emit('chat:message', text);
     }
     setText('');
+  };
+
+  // Envoi de photo réservé aux discussions privées (jamais dans un salon
+  // public) : voir le bouton grisé du salon plus bas dans le rendu.
+  const sendPhoto = async (file) => {
+    if (!file || !activeThreadId) return;
+    setSendingPhoto(true);
+    setPhotoError('');
+    try {
+      const fd = new FormData();
+      fd.append('photo', file);
+      const { url } = await apiFetch('/api/chat/photo', { method: 'POST', body: fd });
+      getChatSocket().emit('chat:privateMessage', { threadId: activeThreadId, photoUrl: url });
+    } catch (err) {
+      setPhotoError(err.message);
+    } finally {
+      setSendingPhoto(false);
+    }
   };
 
   const openPrivate = (targetSocketId) => {
@@ -256,7 +276,13 @@ export default function TchatPage() {
             {activeThread.messages.map((m, i) => (
               <div key={i} className="text-sm">
                 <span className={`font-medium ${GENDER_TEXT_COLORS[m.from.genderBucket]}`}>{m.from.pseudo}</span>
-                <span className="text-neutral-800"> : {m.content}</span>
+                {m.photoUrl ? (
+                  <a href={mediaUrl(m.photoUrl)} target="_blank" rel="noreferrer" className="block mt-1">
+                    <img src={mediaUrl(m.photoUrl)} alt="" className="max-w-[200px] max-h-[200px] rounded-lg border border-neutral-200" />
+                  </a>
+                ) : (
+                  <span className="text-neutral-800"> : {m.content}</span>
+                )}
               </div>
             ))}
             {activeThread.messages.length === 0 && <p className="text-sm text-neutral-500">Dites bonjour ! Si la personne ne répond pas, cette discussion se ferme dans une minute.</p>}
@@ -264,11 +290,30 @@ export default function TchatPage() {
           </div>
         )}
 
-        <form onSubmit={send} className="flex gap-2 pt-2 border-t border-neutral-200">
+        {photoError && <p className="text-xs text-red-600 pt-1">{photoError}</p>}
+
+        <form onSubmit={send} className="flex gap-2 pt-2 border-t border-neutral-200 items-center">
+          {activeThreadId ? (
+            <label className={`btn-secondary text-sm cursor-pointer shrink-0 ${sendingPhoto ? 'opacity-60 pointer-events-none' : ''}`} title="Envoyer une photo">
+              📷
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                disabled={sendingPhoto}
+                onChange={(e) => { e.target.files[0] && sendPhoto(e.target.files[0]); e.target.value = ''; }} />
+            </label>
+          ) : (
+            <button type="button" disabled
+              title="Pour envoyer une photo, démarrez une discussion privée"
+              className="btn-secondary text-sm shrink-0 opacity-40 cursor-not-allowed">
+              📷
+            </button>
+          )}
           <input className="input" placeholder="Votre message..." maxLength={500}
             value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="btn-primary">Envoyer</button>
+          <button className="btn-primary shrink-0">Envoyer</button>
         </form>
+        {!activeThreadId && (
+          <p className="text-[11px] text-neutral-400 pt-1">Pour envoyer une photo, démarrez une discussion privée avec un·e connecté·e.</p>
+        )}
       </div>
 
       <div className="sm:w-48 shrink-0 border-t sm:border-t-0 sm:border-l border-neutral-200 pt-3 sm:pt-0 sm:pl-4 overflow-y-auto">

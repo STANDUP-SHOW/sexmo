@@ -230,11 +230,16 @@ function initChatSockets(io) {
       chat.to(targetSocketId).emit('chat:privateOpened', { threadId, peer: peerInfo(socket.identity) });
     });
 
-    socket.on('chat:privateMessage', async ({ threadId, content } = {}) => {
+    socket.on('chat:privateMessage', async ({ threadId, content, photoUrl } = {}) => {
       const thread = privateThreads.get(threadId);
       if (!thread || !thread.sockets.includes(socket.id) || !socket.identity) return;
       const text = String(content || '').trim().slice(0, MAX_MESSAGE_LENGTH);
-      if (!text) return;
+      // Photo réservée aux discussions privées (jamais aux salons publics —
+      // voir chat:message plus haut, qui n'accepte pas photoUrl) : on ne
+      // vérifie ici que le format (chemin relatif vers notre propre route de
+      // service), pas l'appartenance du fichier à ce fil (non persisté).
+      const photo = typeof photoUrl === 'string' && photoUrl.startsWith('/media/chat-photos/') ? photoUrl : null;
+      if (!text && !photo) return;
       const { type, userId, guestId } = socket.identity;
       if (await isBanned({ userId, guestId })) {
         socket.emit('chat:banned');
@@ -248,7 +253,7 @@ function initChatSockets(io) {
         clearTimeout(thread.timer);
       }
 
-      const payload = { threadId, content: text, createdAt: new Date(), from: peerInfo(socket.identity) };
+      const payload = { threadId, content: text, photoUrl: photo, createdAt: new Date(), from: peerInfo(socket.identity) };
       for (const sid of thread.sockets) chat.to(sid).emit('chat:privateMessage', payload);
     });
 

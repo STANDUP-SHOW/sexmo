@@ -75,6 +75,24 @@ router.get('/photos/:filename', optionalAuth, async (req, res, next) => {
   }
 });
 
+// Photo envoyée dans une discussion privée du Sexmo Tchat. Le fil lui-même
+// n'est pas persisté (voir sockets/chat.js) : on ne peut donc pas vérifier
+// ici que le lecteur est l'un des deux participants, seulement que le
+// fichier a bien été déposé via /api/chat/photo (pas un accès direct au
+// dossier de stockage). Nom de fichier en UUID aléatoire, non listable.
+router.get('/chat-photos/:filename', async (req, res, next) => {
+  try {
+    const filename = req.params.filename;
+    const photo = await prisma.chatPhoto.findFirst({ where: { url: `/media/chat-photos/${filename}` } });
+    if (!photo) return res.status(404).json({ error: 'Photo introuvable' });
+
+    const ext = filename.slice(filename.lastIndexOf('.')).toLowerCase();
+    streamFile(res, filename, IMAGE_CONTENT_TYPES[ext] || 'application/octet-stream');
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/videos/:filename', optionalAuth, async (req, res, next) => {
   try {
     const filename = req.params.filename;
