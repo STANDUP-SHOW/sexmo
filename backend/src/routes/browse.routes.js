@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('../config/prisma');
 const { requireAuth, requireProfile } = require('../middleware/auth');
 const { computeAge } = require('../utils/age');
+const { profileMatchesCity } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
 const { toPublicProfile } = require('./profiles.routes');
 
@@ -11,14 +12,15 @@ const GENDERS = ['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', '
 const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'AUTRE'];
 const BODY_TYPES = ['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE'];
 const EYE_COLORS = ['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE'];
+const AD_CATEGORIES = ['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE'];
 
 router.get('/meta', (req, res) => {
-  res.json({ cities: FRENCH_CITIES, genders: GENDERS, orientations: ORIENTATIONS, bodyTypes: BODY_TYPES, eyeColors: EYE_COLORS });
+  res.json({ cities: FRENCH_CITIES, genders: GENDERS, orientations: ORIENTATIONS, bodyTypes: BODY_TYPES, eyeColors: EYE_COLORS, adCategories: AD_CATEGORIES });
 });
 
 router.get('/', requireAuth, requireProfile, async (req, res, next) => {
   try {
-    const { city, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, page = '1' } = req.query;
+    const { city, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, adCategory, page = '1' } = req.query;
     const pageSize = 24;
     const skip = (Math.max(1, Number(page)) - 1) * pageSize;
 
@@ -34,10 +36,10 @@ router.get('/', requireAuth, requireProfile, async (req, res, next) => {
     const where = {
       visible: true,
       id: { notIn: [req.user.profile.id, ...blockedIds] },
-      ...(city ? { city } : {}),
       ...(gender ? { gender } : {}),
       ...(bodyType ? { bodyType } : {}),
       ...(eyeColor ? { eyeColor } : {}),
+      ...(adCategory ? { adCategory } : {}),
       ...(available === 'true' ? { available: true } : {}),
     };
     if (orientation) where.orientation = orientation;
@@ -46,7 +48,7 @@ router.get('/', requireAuth, requireProfile, async (req, res, next) => {
       where,
       include: { photos: true, user: { select: { birthDate: true } } },
       orderBy: { lastActiveAt: 'desc' },
-      take: 500, // filtered further in-memory by age, then paginated
+      take: 500, // filtré davantage en mémoire (âge, ville/rayon), puis paginé
     });
 
     const min = minAge ? Number(minAge) : 18;
@@ -54,7 +56,7 @@ router.get('/', requireAuth, requireProfile, async (req, res, next) => {
 
     const filtered = candidates.filter((p) => {
       const age = computeAge(p.user.birthDate);
-      return age >= min && age <= max;
+      return age >= min && age <= max && profileMatchesCity(p, city);
     });
 
     const page1 = filtered.slice(skip, skip + pageSize);

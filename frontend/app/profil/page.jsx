@@ -8,7 +8,7 @@ import { getCroppedImageBlob } from '../../lib/cropImage';
 import PhotoCropModal from '../../components/PhotoCropModal';
 import CityAutocomplete from '../../components/CityAutocomplete';
 import { PRACTICE_CATEGORIES } from '../../lib/practices';
-import { BODY_TYPE_LABELS, EYE_COLOR_LABELS } from '../../lib/enums';
+import { BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 
 const MAX_PUBLIC_PHOTOS = 5;
 const MAX_PRIVATE_PHOTOS = 20;
@@ -26,6 +26,12 @@ export default function ProfilePage() {
   const [practices, setPractices] = useState([]);
   const [bodyType, setBodyType] = useState('');
   const [eyeColor, setEyeColor] = useState('');
+  const [adCategory, setAdCategory] = useState('');
+  const [experienceLevel, setExperienceLevel] = useState('');
+  const [useGeolocation, setUseGeolocation] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(0);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState('');
   const [visible, setVisible] = useState(true);
   const [available, setAvailable] = useState(false);
   const [privatePhotosAccess, setPrivatePhotosAccess] = useState('ON_REQUEST');
@@ -60,6 +66,10 @@ export default function ProfilePage() {
     setPractices(user.profile?.practices || []);
     setBodyType(user.profile?.bodyType || '');
     setEyeColor(user.profile?.eyeColor || '');
+    setAdCategory(user.profile?.adCategory || '');
+    setExperienceLevel(user.profile?.experienceLevel || '');
+    setUseGeolocation(user.profile?.useGeolocation ?? false);
+    setRadiusKm(user.profile?.radiusKm ?? 0);
     setVisible(user.profile?.visible ?? true);
     setAvailable(user.profile?.available ?? false);
     setPrivatePhotosAccess(user.profile?.privatePhotosAccess || 'ON_REQUEST');
@@ -85,6 +95,49 @@ export default function ProfilePage() {
     }
   };
 
+  const locateMe = () => {
+    setLocateError('');
+    if (!navigator.geolocation) {
+      setLocateError("La géolocalisation n'est pas disponible sur ce navigateur.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { profile } = await apiFetch('/api/profiles/me', {
+            method: 'PATCH',
+            body: JSON.stringify({
+              useGeolocation: true,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            }),
+          });
+          setUseGeolocation(true);
+          setCity(profile.city);
+        } catch (err) {
+          setLocateError(err.message);
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocateError('Localisation refusée ou indisponible.');
+        setLocating(false);
+      }
+    );
+  };
+
+  const disableGeolocation = async () => {
+    setUseGeolocation(false);
+    await apiFetch('/api/profiles/me', { method: 'PATCH', body: JSON.stringify({ useGeolocation: false }) });
+  };
+
+  const saveRadius = async (km) => {
+    setRadiusKm(km);
+    await apiFetch('/api/profiles/me', { method: 'PATCH', body: JSON.stringify({ radiusKm: km }) });
+  };
+
   const togglePractice = (key) => {
     setPractices((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
   };
@@ -97,7 +150,8 @@ export default function ProfilePage() {
         method: 'PATCH',
         body: JSON.stringify({
           bio, city, visible, interests, practices, privatePhotosAccess,
-          bodyType: bodyType || null, eyeColor: eyeColor || null,
+          bodyType: bodyType || null, eyeColor: eyeColor || null, adCategory: adCategory || null,
+          experienceLevel: experienceLevel || null,
         }),
       });
       setSaved(true);
@@ -214,8 +268,35 @@ export default function ProfilePage() {
         <h2 className="font-semibold">Informations</h2>
         <div>
           <label className="text-sm text-neutral-400">Ville</label>
-          <CityAutocomplete value={city} onChange={setCity} />
+          <CityAutocomplete value={city} onChange={setCity} disabled={useGeolocation} />
         </div>
+
+        <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm text-neutral-600">
+            <input type="checkbox" checked={useGeolocation}
+              onChange={(e) => (e.target.checked ? locateMe() : disableGeolocation())} />
+            Me localiser automatiquement (votre ville est calculée depuis votre position)
+          </label>
+          {useGeolocation ? (
+            <button type="button" className="btn-secondary text-xs" onClick={locateMe} disabled={locating}>
+              {locating ? 'Localisation...' : 'Actualiser ma position'}
+            </button>
+          ) : (
+            <p className="text-xs text-neutral-500">Sinon, l'annonce reste classée dans la ville indiquée ci-dessus.</p>
+          )}
+          {locateError && <p className="text-xs text-red-600">{locateError}</p>}
+          {useGeolocation && (
+            <div>
+              <label className="text-xs text-neutral-500">Étendre la visibilité à {radiusKm} km autour de {city}</label>
+              <input type="range" min={0} max={200} step={10} value={radiusKm}
+                onChange={(e) => setRadiusKm(Number(e.target.value))}
+                onMouseUp={(e) => saveRadius(Number(e.target.value))}
+                onTouchEnd={(e) => saveRadius(Number(e.target.value))}
+                className="w-full" />
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm text-neutral-400">Silhouette</label>
@@ -231,6 +312,20 @@ export default function ProfilePage() {
               {Object.entries(EYE_COLOR_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
+        </div>
+        <div>
+          <label className="text-sm text-neutral-400">Catégorie d'annonce</label>
+          <select className="input" value={adCategory} onChange={(e) => setAdCategory(e.target.value)}>
+            <option value="">Non précisé</option>
+            {Object.entries(AD_CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm text-neutral-400">Badge de niveau (affiché sur votre profil)</label>
+          <select className="input" value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)}>
+            <option value="">Aucun badge</option>
+            {Object.entries(EXPERIENCE_LEVEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
         </div>
         <div>
           <label className="text-sm text-neutral-400">Votre annonce</label>

@@ -34,8 +34,10 @@ export default function Header() {
                 <Link href="/galerie" className="hover:text-brand-400">Galerie</Link>
                 <Link href="/messages" className="hover:text-brand-400">Messages</Link>
                 <Link href="/profil" className="hover:text-brand-400">Mon profil</Link>
+                <Link href="/lieux" className="hover:text-brand-400">Lieux</Link>
               </>
             )}
+            <Link href="/tchat" className="hover:text-brand-400">Tchat</Link>
             {user.role === 'ADMIN' && (
               <Link href="/admin" className="hover:text-brand-400">Back-office</Link>
             )}
@@ -46,6 +48,8 @@ export default function Header() {
         ) : (
           <nav className="flex items-center gap-3 text-sm text-neutral-200">
             <Link href="/parcourir" className="hover:text-brand-400">Parcourir</Link>
+            <Link href="/tchat" className="hover:text-brand-400">Tchat</Link>
+            <Link href="/lieux" className="hover:text-brand-400">Lieux</Link>
             <Link href="/login" className="hover:text-brand-400">Connexion</Link>
             <Link href="/signup" className="btn-primary text-sm px-3 py-1.5">Inscription</Link>
           </nav>

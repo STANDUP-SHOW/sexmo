@@ -57,6 +57,24 @@ enum EyeColor {
   NOISETTE
 }
 
+// Catégorie principale de l'annonce, utilisée comme filtre sur la page
+// d'annonces — plus large que les cases "pratiques" du profil.
+enum AdCategory {
+  EPHEMERE
+  ECHANGISME
+  PLURALISME
+  VOYEURISME
+  GROUPE
+}
+
+// Badge auto-déclaré affiché sur le profil public.
+enum ExperienceLevel {
+  DEBUTANT
+  AMATEUR
+  EXPERIMENTE
+  EXPERT
+}
+
 enum PhotoModerationStatus {
   PENDING
   APPROVED
@@ -111,6 +129,8 @@ model User {
   reportsAgainst Report[]      @relation("ReportsAgainst")
   comments       Comment[]
   testimonials   Testimonial[]
+  chatMessages   ChatMessage[]
+  meetingPlaces  MeetingPlace[]
 
   @@map("users")
 }
@@ -134,6 +154,20 @@ model Profile {
   practices String[] @default([])
   bodyType  BodyType?
   eyeColor  EyeColor?
+  // Catégorie principale affichée/filtrable sur la page d'annonces.
+  adCategory AdCategory?
+  // Badge de niveau d'expérience auto-déclaré, affiché sur le profil public.
+  experienceLevel ExperienceLevel?
+
+  // Géolocalisation optionnelle : si activée, `city` est recalculée
+  // automatiquement à partir de la position (ville connue la plus proche).
+  // Latitude/longitude ne sont jamais exposées publiquement, seulement
+  // utilisées côté serveur pour le classement par ville et le rayon étendu.
+  useGeolocation Boolean @default(false)
+  latitude       Float?
+  longitude      Float?
+  // Rayon (km) au-delà de la ville de base dans lequel l'annonce reste visible.
+  radiusKm       Int     @default(0)
 
   // Profil public (recherche interne + parcours sans compte) ou masqué.
   visible      Boolean  @default(true)
@@ -348,4 +382,60 @@ model SiteSettings {
   updatedAt DateTime @updatedAt
 
   @@map("site_settings")
+}
+
+// Sexmo Tchat : salons publics par département, ouverts aux membres
+// connectés (compte réel) comme aux invités (juste un pseudo, sans compte —
+// guestId généré côté client et conservé pour permettre un bannissement
+// admin même sans identité vérifiée).
+model ChatMessage {
+  id           String   @id @default(cuid())
+  department   String
+  authorUserId String?
+  authorUser   User?    @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  guestId      String?
+  authorName   String
+  content      String   @db.VarChar(500)
+  createdAt    DateTime @default(now())
+
+  @@index([department, createdAt])
+  @@map("chat_messages")
+}
+
+model ChatBan {
+  id        String   @id @default(cuid())
+  userId    String?
+  guestId   String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@map("chat_bans")
+}
+
+// Établissements commerciaux (pas des espaces publics non contrôlés) —
+// saunas, love shops, hammams, bars, clubs vidéo, cinémas — ajoutés par les
+// membres, validés en modération avant publication comme les photos.
+enum PlaceType {
+  SAUNA
+  LOVE_SHOP
+  HAMMAM
+  BAR
+  CLUB_VIDEO
+  CINEMA
+}
+
+model MeetingPlace {
+  id               String                @id @default(cuid())
+  name             String
+  type             PlaceType
+  department       String
+  city             String?
+  description      String?               @db.VarChar(500)
+  addedByUserId    String
+  addedByUser      User                  @relation(fields: [addedByUserId], references: [id], onDelete: Cascade)
+  moderationStatus PhotoModerationStatus @default(PENDING)
+  createdAt        DateTime              @default(now())
+
+  @@index([department, type])
+  @@map("meeting_places")
 }

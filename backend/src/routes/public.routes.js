@@ -5,6 +5,7 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { computeAge } = require('../utils/age');
+const { profileMatchesCity } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
 const { toPublicProfile } = require('./profiles.routes');
 
@@ -17,20 +18,21 @@ router.get('/meta', (req, res) => {
     cities: FRENCH_CITIES,
     bodyTypes: ['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE'],
     eyeColors: ['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE'],
+    adCategories: ['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE'],
   });
 });
 
 router.get('/profiles', async (req, res, next) => {
   try {
-    const { city, gender, minAge, maxAge, bodyType, eyeColor, available, page = '1' } = req.query;
+    const { city, gender, minAge, maxAge, bodyType, eyeColor, available, adCategory, page = '1' } = req.query;
     const skip = (Math.max(1, Number(page)) - 1) * PAGE_SIZE;
 
     const where = {
       visible: true,
-      ...(city ? { city } : {}),
       ...(gender ? { gender } : {}),
       ...(bodyType ? { bodyType } : {}),
       ...(eyeColor ? { eyeColor } : {}),
+      ...(adCategory ? { adCategory } : {}),
       ...(available === 'true' ? { available: true } : {}),
     };
 
@@ -45,7 +47,7 @@ router.get('/profiles', async (req, res, next) => {
     const max = maxAge ? Number(maxAge) : 99;
     const filtered = candidates.filter((p) => {
       const age = computeAge(p.user.birthDate);
-      return age >= min && age <= max;
+      return age >= min && age <= max && profileMatchesCity(p, city);
     });
 
     const page1 = filtered.slice(skip, skip + PAGE_SIZE);

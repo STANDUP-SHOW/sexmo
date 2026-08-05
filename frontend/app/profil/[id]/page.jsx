@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../../lib/api';
-import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS } from '../../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../../lib/enums';
 import { memberSinceLabel } from '../../../lib/format';
 import { PRACTICE_LABELS } from '../../../lib/practices';
 
@@ -88,7 +88,10 @@ export default function ProfileDetailPage() {
       <PrivatePhotosSection profile={profile} accessStatus={accessStatus} onRequest={requestAccess} />
 
       <div>
-        <h1 className="text-2xl font-bold">{profile.pseudo}, {profile.age ?? '—'}</h1>
+        <h1 className="text-2xl font-bold">
+          {profile.pseudo}, {profile.age ?? '—'}
+          {profile.experienceLevel && <span className="text-base font-normal ml-2">{EXPERIENCE_LEVEL_LABELS[profile.experienceLevel]}</span>}
+        </h1>
         <p className="text-neutral-400">{profile.city} · {GENDER_LABELS[profile.gender]} · {ORIENTATION_LABELS[profile.orientation]}</p>
 
         <div className="flex flex-wrap gap-2 mt-2">
@@ -111,6 +114,9 @@ export default function ProfileDetailPage() {
           )}
           {profile.eyeColor && (
             <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">Yeux {EYE_COLOR_LABELS[profile.eyeColor]}</span>
+          )}
+          {profile.adCategory && (
+            <span className="text-xs bg-brand-50 text-brand-700 border border-brand-200 rounded-full px-2.5 py-1">{AD_CATEGORY_LABELS[profile.adCategory]}</span>
           )}
         </div>
 

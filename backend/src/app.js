@@ -24,6 +24,8 @@ const videoRoutes = require('./routes/videos.routes');
 const galleryRoutes = require('./routes/gallery.routes');
 const publicRoutes = require('./routes/public.routes');
 const adminMembersRoutes = require('./routes/adminMembers.routes');
+const chatRoutes = require('./routes/chat.routes');
+const placesRoutes = require('./routes/places.routes');
 
 const app = express();
 
@@ -55,6 +57,8 @@ app.use('/api/videos', videoRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/admin/members', adminMembersRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/places', placesRoutes);
 
 app.use(errorHandler);
 

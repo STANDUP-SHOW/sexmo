@@ -20,6 +20,10 @@ export default function HomePage() {
     <div>
       <AgeGate />
 
+      <div className="bg-brand-500 text-white text-center text-sm font-medium py-2 px-4 -mx-4 sm:mx-0 rounded-b-lg sm:rounded-lg">
+        🎉 Lancement : tout est gratuit du 1er août 2026 au 1er février 2027 — accès total à toutes les fonctionnalités !
+      </div>
+
       <section className="text-center py-16 space-y-6">
         <h1 className="text-4xl font-extrabold text-neutral-900">
           Rencontres <span className="text-brand-500">libertines</span> entre adultes consentants
@@ -39,6 +43,12 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="card text-center py-6 space-y-1">
+        <p className="font-semibold text-neutral-900">sexmo c'est :</p>
+        <p className="text-sm text-neutral-600">Inscription gratuite en 45 secondes. Pas de carte de crédit, tout est gratuit et sans pub !</p>
+        <p className="text-sm text-neutral-600">Accès total à toutes les fonctionnalités.</p>
+      </section>
+
       <section className="grid sm:grid-cols-3 gap-4 py-8">
         <div className="card">
           <h3 className="font-semibold mb-1">Profils vérifiés</h3>
@@ -52,6 +62,14 @@ export default function HomePage() {
           <h3 className="font-semibold mb-1">Messagerie privée</h3>
           <p className="text-sm text-neutral-400">Discutez uniquement après un match mutuel, en temps réel.</p>
         </div>
+      </section>
+
+      <section className="card text-center py-8 space-y-3">
+        <h2 className="text-xl font-bold text-neutral-900">Sexmo Tchat</h2>
+        <p className="text-sm text-neutral-500 max-w-md mx-auto">
+          Rejoignez le salon de discussion de votre département, avec ou sans compte — entrez juste un pseudo pour blablater.
+        </p>
+        <Link href="/tchat" className="btn-primary inline-block">Rejoindre le tchat</Link>
       </section>
 
       {testimonials.length > 0 && (

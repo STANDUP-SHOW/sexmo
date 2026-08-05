@@ -158,7 +158,7 @@ router.patch('/users/:id/status', async (req, res, next) => {
 
 router.get('/stats', async (req, res, next) => {
   try {
-    const [users, profiles, pendingPhotos, pendingVideos, pendingReports, pendingComments, pendingTestimonials] = await Promise.all([
+    const [users, profiles, pendingPhotos, pendingVideos, pendingReports, pendingComments, pendingTestimonials, pendingPlaces] = await Promise.all([
       prisma.user.count(),
       prisma.profile.count(),
       prisma.photo.count({ where: { moderationStatus: 'PENDING' } }),
@@ -166,8 +166,9 @@ router.get('/stats', async (req, res, next) => {
       prisma.report.count({ where: { status: 'PENDING' } }),
       prisma.comment.count({ where: { status: 'PENDING' } }),
       prisma.testimonial.count({ where: { status: 'PENDING' } }),
+      prisma.meetingPlace.count({ where: { moderationStatus: 'PENDING' } }),
     ]);
-    res.json({ users, profiles, pendingPhotos, pendingVideos, pendingReports, pendingComments, pendingTestimonials });
+    res.json({ users, profiles, pendingPhotos, pendingVideos, pendingReports, pendingComments, pendingTestimonials, pendingPlaces });
   } catch (err) {
     next(err);
   }
@@ -366,6 +367,86 @@ router.patch('/testimonials/:id', async (req, res, next) => {
 router.delete('/testimonials/:id', async (req, res, next) => {
   try {
     await prisma.testimonial.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Lieux de rencontre : modération ---
+
+router.get('/places/pending', async (req, res, next) => {
+  try {
+    const places = await prisma.meetingPlace.findMany({
+      where: { moderationStatus: 'PENDING' },
+      include: { addedByUser: { select: { email: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+    res.json({ places });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/places/:id', async (req, res, next) => {
+  try {
+    const { status } = moderateSchema.parse(req.body);
+    const place = await prisma.meetingPlace.update({ where: { id: req.params.id }, data: { moderationStatus: status } });
+    res.json({ place });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/places/:id', async (req, res, next) => {
+  try {
+    await prisma.meetingPlace.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Sexmo Tchat : modération ---
+
+router.delete('/chat/messages/:id', async (req, res, next) => {
+  try {
+    await prisma.chatMessage.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const chatBanSchema = z.object({
+  userId: z.string().optional(),
+  guestId: z.string().optional(),
+  reason: z.string().max(500).optional(),
+}).refine((d) => d.userId || d.guestId, { message: 'userId ou guestId requis' });
+
+router.post('/chat/bans', async (req, res, next) => {
+  try {
+    const data = chatBanSchema.parse(req.body);
+    const ban = await prisma.chatBan.create({ data });
+    res.status(201).json({ ban });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/chat/bans', async (req, res, next) => {
+  try {
+    const bans = await prisma.chatBan.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ bans });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/chat/bans/:id', async (req, res, next) => {
+  try {
+    await prisma.chatBan.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
     next(err);

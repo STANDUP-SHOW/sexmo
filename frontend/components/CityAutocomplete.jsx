@@ -25,6 +25,7 @@ export default function CityAutocomplete({
   onChange,
   placeholder = 'Votre ville',
   required,
+  disabled,
   className = 'input',
 }) {
   const inputRef = useRef(null);
@@ -63,11 +64,12 @@ export default function CityAutocomplete({
       ref={inputRef}
       type="text"
       required={required}
+      disabled={disabled}
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
       onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-      className={className}
+      className={`${className}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`}
       autoComplete="off"
     />
   );

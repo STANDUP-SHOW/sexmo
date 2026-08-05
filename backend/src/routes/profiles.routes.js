@@ -6,6 +6,7 @@ const { computeAge } = require('../utils/age');
 const { computeReputation } = require('../utils/reputation');
 const { computeProfileQuality } = require('../utils/profileQuality');
 const { ALL_PRACTICE_KEYS } = require('../constants/practices');
+const { nearestCity } = require('../utils/geo');
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -23,14 +24,32 @@ const updateSchema = z.object({
   practices: z.array(z.enum(ALL_PRACTICE_KEYS)).optional(),
   bodyType: z.enum(['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE']).nullable().optional(),
   eyeColor: z.enum(['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE']).nullable().optional(),
+  adCategory: z.enum(['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE']).nullable().optional(),
+  experienceLevel: z.enum(['DEBUTANT', 'AMATEUR', 'EXPERIMENTE', 'EXPERT']).nullable().optional(),
   visible: z.boolean().optional(),
   available: z.boolean().optional(),
   privatePhotosAccess: z.enum(['EVERYONE', 'ON_REQUEST']).optional(),
+  useGeolocation: z.boolean().optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  radiusKm: z.number().int().min(0).max(300).optional(),
 });
 
 router.patch('/me', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
+
+    // Géolocalisation activée avec une position fraîche : la ville et la
+    // région sont recalculées automatiquement vers la ville connue la plus
+    // proche, sans que le membre ait à la ressaisir.
+    if (data.useGeolocation && data.latitude != null && data.longitude != null) {
+      const nearest = nearestCity(data.latitude, data.longitude);
+      if (nearest) {
+        data.city = nearest.name;
+        data.region = nearest.region;
+      }
+    }
+
     const profile = await prisma.profile.update({
       where: { userId: req.user.id },
       data,
@@ -62,7 +81,11 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
     practices: profile.practices,
     bodyType: profile.bodyType,
     eyeColor: profile.eyeColor,
+    adCategory: profile.adCategory,
+    experienceLevel: profile.experienceLevel,
     available: profile.available,
+    useGeolocation: profile.useGeolocation,
+    radiusKm: profile.radiusKm,
     age: ownerBirthDate ? computeAge(ownerBirthDate) : null,
     lastActiveAt: profile.lastActiveAt,
     memberSinceDays: Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / MS_PER_DAY),

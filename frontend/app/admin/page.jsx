@@ -9,6 +9,7 @@ import VideosTab from '../../components/admin/VideosTab';
 import MembersTab from '../../components/admin/MembersTab';
 import ImportTab from '../../components/admin/ImportTab';
 import PagesTab from '../../components/admin/PagesTab';
+import PlacesTab from '../../components/admin/PlacesTab';
 import CommentsTab from '../../components/admin/CommentsTab';
 import TestimonialsTab from '../../components/admin/TestimonialsTab';
 import SettingsTab from '../../components/admin/SettingsTab';
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'videos', label: 'Vidéos' },
   { id: 'import', label: 'Import' },
   { id: 'pages', label: 'Pages' },
+  { id: 'places', label: 'Lieux' },
   { id: 'comments', label: 'Commentaires' },
   { id: 'testimonials', label: 'Avis' },
   { id: 'settings', label: 'Personnalisation' },
@@ -45,7 +47,7 @@ export default function AdminPage() {
       <h1 className="text-2xl font-bold">Back-office</h1>
 
       {stats && (
-        <div className="grid grid-cols-3 sm:grid-cols-7 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-8 gap-3">
           <div className="card text-center py-3"><p className="text-xl font-bold">{stats.users}</p><p className="text-xs text-neutral-500">Comptes</p></div>
           <div className="card text-center py-3"><p className="text-xl font-bold">{stats.profiles}</p><p className="text-xs text-neutral-500">Profils</p></div>
           <div className="card text-center py-3"><p className="text-xl font-bold">{stats.pendingPhotos}</p><p className="text-xs text-neutral-500">Photos</p></div>
@@ -53,6 +55,7 @@ export default function AdminPage() {
           <div className="card text-center py-3"><p className="text-xl font-bold">{stats.pendingReports}</p><p className="text-xs text-neutral-500">Signalements</p></div>
           <div className="card text-center py-3"><p className="text-xl font-bold">{stats.pendingComments}</p><p className="text-xs text-neutral-500">Commentaires</p></div>
           <div className="card text-center py-3"><p className="text-xl font-bold">{stats.pendingTestimonials}</p><p className="text-xs text-neutral-500">Avis</p></div>
+          <div className="card text-center py-3"><p className="text-xl font-bold">{stats.pendingPlaces}</p><p className="text-xs text-neutral-500">Lieux</p></div>
         </div>
       )}
 
@@ -72,6 +75,7 @@ export default function AdminPage() {
       {tab === 'videos' && <VideosTab />}
       {tab === 'import' && <ImportTab />}
       {tab === 'pages' && <PagesTab />}
+      {tab === 'places' && <PlacesTab />}
       {tab === 'comments' && <CommentsTab />}
       {tab === 'testimonials' && <TestimonialsTab />}
       {tab === 'settings' && <SettingsTab />}

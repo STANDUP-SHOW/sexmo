@@ -32,3 +32,18 @@ export const EYE_COLOR_LABELS = {
   GRIS: 'Gris',
   NOISETTE: 'Noisette',
 };
+
+export const AD_CATEGORY_LABELS = {
+  EPHEMERE: 'Rencontre éphémère',
+  ECHANGISME: 'Échangisme',
+  PLURALISME: 'Pluralisme',
+  VOYEURISME: 'Voyeurisme',
+  GROUPE: 'Groupe',
+};
+
+export const EXPERIENCE_LEVEL_LABELS = {
+  DEBUTANT: '🌱 Débutant',
+  AMATEUR: '😊 Amateur',
+  EXPERIMENTE: '🔥 Expérimenté',
+  EXPERT: '👑 Expert',
+};

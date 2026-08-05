@@ -5,15 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
-import { GENDER_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS } from '../../lib/enums';
+import { GENDER_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
 import CityAutocomplete from '../../components/CityAutocomplete';
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [meta, setMeta] = useState({ cities: [], genders: [], bodyTypes: [], eyeColors: [] });
-  const [filters, setFilters] = useState({ city: '', gender: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', available: false });
+  const [meta, setMeta] = useState({ cities: [], genders: [], bodyTypes: [], eyeColors: [], adCategories: [] });
+  const [filters, setFilters] = useState({ city: '', gender: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
   const [matchNotice, setMatchNotice] = useState(null);
 
@@ -79,6 +79,10 @@ export default function DiscoverPage() {
           <option value="">Couleur des yeux</option>
           {(meta.eyeColors || []).map((k) => <option key={k} value={k}>{EYE_COLOR_LABELS[k]}</option>)}
         </select>
+        <select className="input w-44" value={filters.adCategory} onChange={(e) => setFilters({ ...filters, adCategory: e.target.value })}>
+          <option value="">Catégorie d'annonce</option>
+          {(meta.adCategories || []).map((k) => <option key={k} value={k}>{AD_CATEGORY_LABELS[k]}</option>)}
+        </select>
         <label className="flex items-center gap-2 text-sm text-neutral-600">
           <input type="checkbox" checked={filters.available} onChange={(e) => setFilters({ ...filters, available: e.target.checked })} />
           Disponibles maintenant
@@ -98,22 +102,29 @@ export default function DiscoverPage() {
         {profiles.map((p) => (
           <div key={p.id} className="card p-0 overflow-hidden">
             <Link href={`/profil/${p.id}`}>
-              <div className="relative aspect-[3/4] bg-neutral-200">
-                {p.photos[0] ? (
-                  <img src={mediaUrl(p.photos[0].url)} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">Pas de photo</div>
-                )}
+              <div className="relative">
                 {p.available && (
-                  <span className="absolute top-2 right-2 flex items-center gap-1 text-[10px] bg-white/90 text-green-700 rounded-full px-2 py-0.5">
+                  <span className="absolute top-2 right-2 z-10 flex items-center gap-1 text-[10px] bg-white/90 text-green-700 rounded-full px-2 py-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Disponible
                   </span>
+                )}
+                {p.photos.length > 0 ? (
+                  <div className="grid grid-cols-5 gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="aspect-square bg-neutral-200">
+                        {p.photos[i] && <img src={mediaUrl(p.photos[i].url)} alt="" className="w-full h-full object-cover" />}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="aspect-[3/4] w-full flex items-center justify-center bg-neutral-200 text-neutral-600 text-xs">Pas de photo</div>
                 )}
               </div>
             </Link>
             <div className="p-3">
-              <p className="font-medium">{p.pseudo}, {p.age ?? '—'}</p>
+              <p className="font-medium">{p.pseudo}, {p.age ?? '—'} {p.experienceLevel && <span className="text-sm">{EXPERIENCE_LEVEL_LABELS[p.experienceLevel]}</span>}</p>
               <p className="text-xs text-neutral-500">{p.city} · {GENDER_LABELS[p.gender]}</p>
+              {p.adCategory && <p className="text-xs text-brand-600">{AD_CATEGORY_LABELS[p.adCategory]}</p>}
               {p.memberSinceDays != null && (
                 <p className="text-[11px] text-neutral-600">{memberSinceLabel(p.memberSinceDays)}</p>
               )}
