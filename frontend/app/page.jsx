@@ -60,7 +60,7 @@ export default function HomePage() {
         </div>
         <div className="card">
           <h3 className="font-semibold mb-1">Messagerie privée</h3>
-          <p className="text-sm text-neutral-400">Discutez uniquement après un match mutuel, en temps réel.</p>
+          <p className="text-sm text-neutral-400">Discutez en temps réel avec les connectés.</p>
         </div>
       </section>
 
