@@ -64,12 +64,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="card text-center py-8 space-y-3">
-        <h2 className="text-xl font-bold text-neutral-900">Sexmo Tchat</h2>
-        <p className="text-sm text-neutral-500 max-w-md mx-auto">
-          Rejoignez le salon de discussion de votre département, avec ou sans compte — entrez juste un pseudo pour blablater.
+      <section className="bg-brand-500 rounded-xl text-center py-10 px-4 space-y-4">
+        <h2 className="text-4xl font-extrabold text-white">
+          TCHAT PUBLIC OUVERT À TOUS – DISCUSSIONS PRIVÉES OUVERTES !
+        </h2>
+        <p className="text-xl font-bold text-white max-w-2xl mx-auto">
+          Rejoignez le salon de discussion de votre département,<br />
+          Avec ou Sans compte<br />
+          entrez juste un pseudo et blablatez en toute discrétion
         </p>
-        <Link href="/tchat" className="btn-primary inline-block">Rejoindre le tchat</Link>
+        <Link href="/tchat" className="inline-block bg-white text-green-600 font-semibold rounded-lg px-5 py-2.5 hover:bg-neutral-100 transition">
+          Rejoindre le tchat
+        </Link>
       </section>
 
       {testimonials.length > 0 && (
