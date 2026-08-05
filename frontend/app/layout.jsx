@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 
 export const metadata = {
-  title: 'LibertineConnect — Rencontres entre adultes consentants',
+  title: 'sexmo — Rencontres libertines entre adultes consentants',
   description: "Plateforme de rencontre pour couples et célibataires ouverts d'esprit, partout en France.",
   robots: { index: false, follow: false },
 };

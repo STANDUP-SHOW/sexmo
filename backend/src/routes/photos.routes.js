@@ -48,6 +48,8 @@ router.post('/', requireAuth, requireProfile, upload.single('photo'), async (req
         url: `/media/photos/${filename}`,
         isPrivate,
         position: count,
+        // Une photo privée ne peut jamais atterrir dans la galerie publique du site.
+        publishedToGallery: !isPrivate && req.body.publishedToGallery === 'true',
         // Toute photo passe par une file de modération manuelle avant d'être
         // visible publiquement (voir /api/admin/photos). À terme, brancher un
         // scanner automatique (contenu illégal / mineurs) en amont de la queue.
@@ -56,6 +58,25 @@ router.post('/', requireAuth, requireProfile, upload.single('photo'), async (req
     });
 
     res.status(201).json({ photo });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
+    if (!photo || photo.profileId !== req.user.profile.id) {
+      return res.status(404).json({ error: 'Photo introuvable' });
+    }
+    if (photo.isPrivate && req.body.publishedToGallery) {
+      return res.status(400).json({ error: 'Une photo privée ne peut pas être publiée dans la galerie du site' });
+    }
+    const updated = await prisma.photo.update({
+      where: { id: photo.id },
+      data: { publishedToGallery: !!req.body.publishedToGallery },
+    });
+    res.json({ photo: updated });
   } catch (err) {
     next(err);
   }

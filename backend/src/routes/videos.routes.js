@@ -40,11 +40,28 @@ router.post('/', requireAuth, requireProfile, upload.single('video'), async (req
         profileId: req.user.profile.id,
         url: `/media/videos/${filename}`,
         position: count,
+        publishedToGallery: req.body.publishedToGallery === 'true',
         moderationStatus: 'PENDING',
       },
     });
 
     res.status(201).json({ video });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const video = await prisma.video.findUnique({ where: { id: req.params.id } });
+    if (!video || video.profileId !== req.user.profile.id) {
+      return res.status(404).json({ error: 'Vidéo introuvable' });
+    }
+    const updated = await prisma.video.update({
+      where: { id: video.id },
+      data: { publishedToGallery: !!req.body.publishedToGallery },
+    });
+    res.json({ video: updated });
   } catch (err) {
     next(err);
   }

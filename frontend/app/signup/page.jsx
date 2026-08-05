@@ -104,7 +104,7 @@ export default function SignupPage() {
             {GENDERS.map((g) => (
               <button type="button" key={g}
                 onClick={() => toggleSeeking(g)}
-                className={`text-xs rounded-full px-3 py-1.5 border ${form.seeking.includes(g) ? 'bg-brand-600 border-brand-600 text-white' : 'border-neutral-300 text-neutral-600'}`}>
+                className={`text-xs rounded-full px-3 py-1.5 border ${form.seeking.includes(g) ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600'}`}>
                 {GENDER_LABELS[g]}
               </button>
             ))}

@@ -22,7 +22,7 @@ export default function HomePage() {
 
       <section className="text-center py-16 space-y-6">
         <h1 className="text-4xl font-extrabold text-neutral-900">
-          Rencontres <span className="text-brand-600">libertines</span> entre adultes consentants
+          Rencontres <span className="text-brand-500">libertines</span> entre adultes consentants
         </h1>
         <p className="text-neutral-400 max-w-xl mx-auto">
           {tagline || "Célibataires et couples ouverts d'esprit, partout en France. Créez votre profil, ajoutez jusqu'à 20 photos, échangez en toute discrétion."}
@@ -58,7 +58,7 @@ export default function HomePage() {
         <section className="py-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-neutral-900">Ils en parlent</h2>
-            <Link href="/avis" className="text-sm text-brand-600 hover:text-brand-700">Voir tous les avis</Link>
+            <Link href="/avis" className="text-sm text-brand-500 hover:text-brand-600">Voir tous les avis</Link>
           </div>
           <div className="grid sm:grid-cols-3 gap-4">
             {testimonials.map((t) => (

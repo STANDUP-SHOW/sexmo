@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "practices" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

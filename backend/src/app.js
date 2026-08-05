@@ -21,6 +21,7 @@ const settingsRoutes = require('./routes/settings.routes');
 const mediaRoutes = require('./routes/media.routes');
 const photoAccessRoutes = require('./routes/photoAccess.routes');
 const videoRoutes = require('./routes/videos.routes');
+const galleryRoutes = require('./routes/gallery.routes');
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/media', mediaRoutes);
 app.use('/api/photo-access', photoAccessRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/gallery', galleryRoutes);
 
 app.use(errorHandler);
 

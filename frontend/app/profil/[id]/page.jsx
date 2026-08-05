@@ -6,6 +6,7 @@ import { useAuth } from '../../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS } from '../../../lib/enums';
 import { memberSinceLabel } from '../../../lib/format';
+import { PRACTICE_LABELS } from '../../../lib/practices';
 
 const REPORT_REASONS = {
   FAUX_PROFIL: 'Faux profil',
@@ -98,11 +99,21 @@ export default function ProfileDetailPage() {
             <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">Taux de réponse : {profile.reputation.responseRatePct}%</span>
           )}
           {profile.reputation?.exemplary && (
-            <span className="text-xs bg-brand-600 text-white rounded-full px-2.5 py-1">✓ Membre exemplaire</span>
+            <span className="text-xs bg-brand-500 text-white rounded-full px-2.5 py-1">✓ Membre exemplaire</span>
           )}
         </div>
 
         {profile.bio && <p className="mt-3 text-neutral-800 whitespace-pre-line">{profile.bio}</p>}
+
+        {profile.practices?.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {profile.practices.map((key) => (
+              <span key={key} className="text-xs bg-brand-50 text-brand-700 border border-brand-200 rounded-full px-2.5 py-1">
+                {PRACTICE_LABELS[key] || key}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">

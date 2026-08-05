@@ -56,7 +56,7 @@ export default function AdminPage() {
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-3 py-2 text-sm whitespace-nowrap border-b-2 transition ${
-              tab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              tab === t.id ? 'border-brand-500 text-brand-500' : 'border-transparent text-neutral-500 hover:text-neutral-800'
             }`}>
             {t.label}
           </button>

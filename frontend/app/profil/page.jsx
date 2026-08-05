@@ -7,6 +7,7 @@ import { apiFetch, mediaUrl } from '../../lib/api';
 import { getCroppedImageBlob } from '../../lib/cropImage';
 import PhotoCropModal from '../../components/PhotoCropModal';
 import CityAutocomplete from '../../components/CityAutocomplete';
+import { PRACTICE_CATEGORIES } from '../../lib/practices';
 
 const MAX_PUBLIC_PHOTOS = 5;
 const MAX_PRIVATE_PHOTOS = 20;
@@ -21,6 +22,7 @@ export default function ProfilePage() {
   const [bio, setBio] = useState('');
   const [city, setCity] = useState('');
   const [interestsText, setInterestsText] = useState('');
+  const [practices, setPractices] = useState([]);
   const [visible, setVisible] = useState(true);
   const [privatePhotosAccess, setPrivatePhotosAccess] = useState('ON_REQUEST');
   const [photos, setPhotos] = useState([]);
@@ -51,6 +53,7 @@ export default function ProfilePage() {
     setBio(user.profile?.bio || '');
     setCity(user.profile?.city || '');
     setInterestsText((user.profile?.interests || []).join(', '));
+    setPractices(user.profile?.practices || []);
     setVisible(user.profile?.visible ?? true);
     setPrivatePhotosAccess(user.profile?.privatePhotosAccess || 'ON_REQUEST');
     apiFetch('/api/photos/mine').then((d) => setPhotos(d.photos)).catch(() => {});
@@ -64,13 +67,17 @@ export default function ProfilePage() {
   const publicPhotos = photos.filter((p) => !p.isPrivate);
   const privatePhotos = photos.filter((p) => p.isPrivate);
 
+  const togglePractice = (key) => {
+    setPractices((p) => (p.includes(key) ? p.filter((k) => k !== key) : [...p, key]));
+  };
+
   const save = async () => {
     setError('');
     try {
       const interests = interestsText.split(',').map((s) => s.trim()).filter(Boolean);
       await apiFetch('/api/profiles/me', {
         method: 'PATCH',
-        body: JSON.stringify({ bio, city, visible, interests, privatePhotosAccess }),
+        body: JSON.stringify({ bio, city, visible, interests, practices, privatePhotosAccess }),
       });
       setSaved(true);
       refreshQuality();
@@ -124,6 +131,14 @@ export default function ProfilePage() {
     refreshQuality();
   };
 
+  const toggleGalleryPhoto = async (id, publishedToGallery) => {
+    const { photo } = await apiFetch(`/api/photos/${id}/gallery`, {
+      method: 'PATCH',
+      body: JSON.stringify({ publishedToGallery }),
+    });
+    setPhotos((p) => p.map((ph) => (ph.id === id ? photo : ph)));
+  };
+
   const uploadVideo = async (file) => {
     if (videos.length >= MAX_VIDEOS) return setError(`Maximum ${MAX_VIDEOS} vidéos.`);
     setUploadingVideo(true);
@@ -145,6 +160,14 @@ export default function ProfilePage() {
     setVideos((v) => v.filter((vid) => vid.id !== id));
   };
 
+  const toggleGalleryVideo = async (id, publishedToGallery) => {
+    const { video } = await apiFetch(`/api/videos/${id}/gallery`, {
+      method: 'PATCH',
+      body: JSON.stringify({ publishedToGallery }),
+    });
+    setVideos((v) => v.map((vid) => (vid.id === id ? video : vid)));
+  };
+
   const respondToRequest = async (id, status) => {
     await apiFetch(`/api/photo-access/requests/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
     setAccessRequests((r) => r.filter((req) => req.id !== id));
@@ -164,8 +187,9 @@ export default function ProfilePage() {
           <CityAutocomplete value={city} onChange={setCity} />
         </div>
         <div>
-          <label className="text-sm text-neutral-400">Bio</label>
-          <textarea className="input" rows={4} maxLength={1000} value={bio} onChange={(e) => setBio(e.target.value)} />
+          <label className="text-sm text-neutral-400">Votre annonce</label>
+          <textarea className="input" rows={4} maxLength={1000} placeholder="Décrivez-vous, ce que vous recherchez, ce que vous pratiquez..."
+            value={bio} onChange={(e) => setBio(e.target.value)} />
         </div>
         <div>
           <label className="text-sm text-neutral-400">Centres d'intérêt (séparés par des virgules)</label>
@@ -190,6 +214,35 @@ export default function ProfilePage() {
         </div>
       </section>
 
+      <section className="card space-y-4">
+        <h2 className="font-semibold">Vos pratiques</h2>
+        <p className="text-sm text-neutral-500">Cochez ce qui vous correspond, affiché sur votre profil public.</p>
+        <div className="space-y-4">
+          {PRACTICE_CATEGORIES.map((cat) => (
+            <div key={cat.key}>
+              <h3 className="text-sm font-medium text-neutral-700 mb-2">{cat.label}</h3>
+              <div className="flex flex-wrap gap-2">
+                {cat.practices.map((p) => {
+                  const checked = practices.includes(p.key);
+                  return (
+                    <button type="button" key={p.key} onClick={() => togglePractice(p.key)}
+                      className={`text-xs rounded-full px-3 py-1.5 border transition ${
+                        checked ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600 hover:border-brand-300'
+                      }`}>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="btn-primary" onClick={save}>Enregistrer</button>
+          {saved && <span className="text-sm text-green-600">Enregistré</span>}
+        </div>
+      </section>
+
       {quality && (
         <section className="card space-y-3">
           <div className="flex items-center justify-between">
@@ -197,7 +250,7 @@ export default function ProfilePage() {
             <span className="text-sm text-neutral-400">{quality.score} / {quality.maxScore}</span>
           </div>
           <div className="w-full h-2 rounded-full bg-neutral-200 overflow-hidden">
-            <div className="h-full bg-brand-600" style={{ width: `${(quality.score / quality.maxScore) * 100}%` }} />
+            <div className="h-full bg-brand-500" style={{ width: `${(quality.score / quality.maxScore) * 100}%` }} />
           </div>
           {quality.suggestions.length > 0 ? (
             <ul className="text-sm text-neutral-400 list-disc list-inside space-y-1">
@@ -227,6 +280,8 @@ export default function ProfilePage() {
       <PhotoGrid
         title="Photos publiques" max={MAX_PUBLIC_PHOTOS} photos={publicPhotos}
         uploading={uploading} onFileSelected={(f) => onFileSelected(f, false)} onDelete={deletePhoto}
+        onToggleGallery={toggleGalleryPhoto}
+        hint="Une photo publique approuvée peut en plus être publiée dans la galerie « Photos des membres » du site."
       />
 
       <PhotoGrid
@@ -246,6 +301,7 @@ export default function ProfilePage() {
           </label>
         </div>
         <p className="text-xs text-neutral-500">Vérifiée par la modération avant d'apparaître publiquement. Formats acceptés : mp4, mov, webm (80 Mo max).</p>
+        <p className="text-xs text-neutral-500">Une vidéo approuvée peut en plus être publiée dans la galerie « Vidéos des membres » du site.</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {videos.map((v) => (
             <div key={v.id} className="relative aspect-video rounded-lg overflow-hidden border border-neutral-200 bg-black">
@@ -257,6 +313,13 @@ export default function ProfilePage() {
                 className="absolute bottom-1 right-1 text-[10px] bg-black/70 rounded px-1.5 py-0.5 hover:bg-black">
                 Supprimer
               </button>
+              {v.moderationStatus === 'APPROVED' && (
+                <label className="absolute bottom-1 left-1 flex items-center gap-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 cursor-pointer">
+                  <input type="checkbox" checked={v.publishedToGallery}
+                    onChange={(e) => toggleGalleryVideo(v.id, e.target.checked)} />
+                  Galerie
+                </label>
+              )}
             </div>
           ))}
         </div>
@@ -269,7 +332,7 @@ export default function ProfilePage() {
   );
 }
 
-function PhotoGrid({ title, max, photos, uploading, onFileSelected, onDelete, hint }) {
+function PhotoGrid({ title, max, photos, uploading, onFileSelected, onDelete, onToggleGallery, hint }) {
   return (
     <section className="card space-y-4">
       <div className="flex items-center justify-between">
@@ -293,6 +356,13 @@ function PhotoGrid({ title, max, photos, uploading, onFileSelected, onDelete, hi
               className="absolute bottom-1 right-1 text-[10px] bg-black/70 rounded px-1.5 py-0.5 hover:bg-black">
               Supprimer
             </button>
+            {onToggleGallery && p.moderationStatus === 'APPROVED' && (
+              <label className="absolute bottom-1 left-1 flex items-center gap-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 cursor-pointer">
+                <input type="checkbox" checked={p.publishedToGallery}
+                  onChange={(e) => onToggleGallery(p.id, e.target.checked)} />
+                Galerie
+              </label>
+            )}
           </div>
         ))}
       </div>

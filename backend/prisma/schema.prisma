@@ -114,6 +114,8 @@ model Profile {
   region    String?
   bio       String   @default("") @db.VarChar(1000)
   interests String[] @default([])
+  // Pratiques cochées par le profil, voir src/constants/practices.js pour la liste fermée.
+  practices String[] @default([])
 
   visible      Boolean  @default(true)
   lastActiveAt DateTime @default(now())
@@ -147,6 +149,9 @@ model Photo {
   isPrivate        Boolean               @default(false)
   moderationStatus PhotoModerationStatus @default(PENDING)
   position         Int                   @default(0)
+  // Visible dans la rubrique "Photos des membres" (galerie publique du site),
+  // en plus de la page de profil. Toujours false pour une photo privée.
+  publishedToGallery Boolean             @default(false)
   createdAt        DateTime              @default(now())
 
   @@map("photos")
@@ -159,6 +164,8 @@ model Video {
   url              String
   moderationStatus ModerationStatus @default(PENDING)
   position         Int              @default(0)
+  // Visible dans la rubrique "Vidéos des membres" (galerie publique du site).
+  publishedToGallery Boolean        @default(false)
   createdAt        DateTime         @default(now())
 
   @@map("videos")
@@ -309,7 +316,7 @@ model Testimonial {
 // depuis le back-office sans redéploiement de code.
 model SiteSettings {
   id        String   @id @default("singleton")
-  siteName  String   @default("LibertineConnect")
+  siteName  String   @default("sexmo")
   tagline   String   @default("Rencontres libertines entre adultes consentants")
   logoUrl   String?
   updatedAt DateTime @updatedAt

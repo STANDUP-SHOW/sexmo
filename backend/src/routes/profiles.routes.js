@@ -5,6 +5,7 @@ const { requireAuth, requireProfile } = require('../middleware/auth');
 const { computeAge } = require('../utils/age');
 const { computeReputation } = require('../utils/reputation');
 const { computeProfileQuality } = require('../utils/profileQuality');
+const { ALL_PRACTICE_KEYS } = require('../constants/practices');
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -19,6 +20,7 @@ const updateSchema = z.object({
   region: z.string().optional(),
   bio: z.string().max(1000).optional(),
   interests: z.array(z.string()).optional(),
+  practices: z.array(z.enum(ALL_PRACTICE_KEYS)).optional(),
   visible: z.boolean().optional(),
   privatePhotosAccess: z.enum(['EVERYONE', 'ON_REQUEST']).optional(),
 });
@@ -54,6 +56,7 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
     region: profile.region,
     bio: profile.bio,
     interests: profile.interests,
+    practices: profile.practices,
     age: ownerBirthDate ? computeAge(ownerBirthDate) : null,
     lastActiveAt: profile.lastActiveAt,
     memberSinceDays: Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / MS_PER_DAY),
