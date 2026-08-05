@@ -17,14 +17,20 @@ export function getGuestId() {
 
 let chatSocket = null;
 
-// guestPseudo : requis seulement si l'utilisateur n'est pas connecté.
-export function getChatSocket(guestPseudo) {
+// Connexion unique, sans info invité au départ : suffisant pour observer
+// les compteurs par département. Un membre est identifié directement par
+// son jeton ; un invité doit ensuite appeler identifyAsGuest().
+export function getChatSocket() {
   if (chatSocket) return chatSocket;
   chatSocket = io(`${API_URL}/chat`, {
-    auth: { token: getToken(), guestPseudo, guestId: getGuestId() },
+    auth: { token: getToken() },
     autoConnect: true,
   });
   return chatSocket;
+}
+
+export function identifyAsGuest(pseudo, genderBucket) {
+  getChatSocket().emit('chat:identify', { guestPseudo: pseudo, guestGender: genderBucket, guestId: getGuestId() });
 }
 
 export function disconnectChatSocket() {
