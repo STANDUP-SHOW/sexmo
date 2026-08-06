@@ -57,15 +57,14 @@ export default function ProfileDetailPage() {
     setNotice(res.matched ? "C'est un match ! Rendez-vous dans vos messages." : 'Profil aimé.');
   };
 
-  // "Contacter" tente d'aller droit à la conversation : le like est
-  // idempotent (voir /api/likes) donc rappelable sans risque si un match
-  // existe déjà — on est redirigé directement si c'est le cas.
+  // "Contacter" ouvre directement une conversation, sans attendre un like
+  // réciproque (contrairement à "J'aime") — prise de contact explicite.
   const contact = async () => {
-    const res = await apiFetch(`/api/likes/${profile.id}`, { method: 'POST' });
-    if (res.matched) {
+    try {
+      const res = await apiFetch(`/api/messages/start/${profile.id}`, { method: 'POST' });
       router.push(`/messages/${res.conversationId}`);
-    } else {
-      setNotice("Profil aimé — vous pourrez discuter dès que la personne vous aimera aussi.");
+    } catch (err) {
+      setNotice(err.message);
     }
   };
 

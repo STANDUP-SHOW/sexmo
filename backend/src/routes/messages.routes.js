@@ -25,6 +25,63 @@ async function loadConversationForProfile(conversationId, profileId) {
   return conversation;
 }
 
+// "Contacter" sur une fiche profil : ouvre directement une conversation,
+// sans attendre un like réciproque. Contrairement à "J'aime" (qui suit la
+// logique de match classique et n'ouvre la messagerie qu'en cas de
+// réciprocité), c'est une prise de contact explicite et volontaire du
+// membre qui clique — assumée comme telle, à la manière d'un premier
+// message sur la plupart des sites de rencontre.
+router.post('/start/:profileId', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const myId = req.user.profile.id;
+    const targetId = req.params.profileId;
+    if (targetId === myId) return res.status(400).json({ error: 'Action impossible sur son propre profil' });
+
+    const target = await prisma.profile.findUnique({ where: { id: targetId } });
+    if (!target || !target.visible) return res.status(404).json({ error: 'Profil introuvable' });
+
+    const blocked = await prisma.blockedProfile.findFirst({
+      where: {
+        OR: [
+          { blockerProfileId: myId, blockedProfileId: targetId },
+          { blockerProfileId: targetId, blockedProfileId: myId },
+        ],
+      },
+    });
+    if (blocked) return res.status(404).json({ error: 'Profil introuvable' });
+
+    await prisma.like.upsert({
+      where: { fromProfileId_toProfileId: { fromProfileId: myId, toProfileId: targetId } },
+      update: {},
+      create: { fromProfileId: myId, toProfileId: targetId },
+    });
+
+    const [profileAId, profileBId] = [myId, targetId].sort();
+    const match = await prisma.match.upsert({
+      where: { profileAId_profileBId: { profileAId, profileBId } },
+      update: {},
+      create: { profileAId, profileBId },
+    });
+
+    const conversation = await prisma.conversation.upsert({
+      where: { matchId: match.id },
+      update: {},
+      create: { matchId: match.id },
+    });
+
+    const io = req.app.get('io');
+    io?.to(`profile:${targetId}`).emit('match:new', {
+      matchId: match.id,
+      conversationId: conversation.id,
+      fromPseudo: req.user.profile.pseudo,
+    });
+
+    res.json({ conversationId: conversation.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/conversations', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const myId = req.user.profile.id;
