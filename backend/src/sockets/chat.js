@@ -67,6 +67,7 @@ function peerInfo(identity) {
     genderBucket: identity.genderBucket,
     isMember: identity.type === 'member',
     experienceLevel: identity.experienceLevel || null,
+    photoUrl: identity.photoUrl || null,
   };
 }
 
@@ -88,7 +89,20 @@ function initChatSockets(io) {
       const token = socket.handshake.auth?.token;
       if (token) {
         const payload = verifyToken(token);
-        const user = await prisma.user.findUnique({ where: { id: payload.userId }, include: { profile: true } });
+        const user = await prisma.user.findUnique({
+          where: { id: payload.userId },
+          include: {
+            profile: {
+              include: {
+                photos: {
+                  where: { isPrivate: false, moderationStatus: 'APPROVED' },
+                  orderBy: { position: 'asc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+        });
         if (user && user.profile && user.status === 'ACTIVE') {
           socket.identity = {
             type: 'member',
@@ -97,6 +111,7 @@ function initChatSockets(io) {
             pseudo: user.profile.pseudo,
             genderBucket: genderBucket(user.profile.gender),
             experienceLevel: user.profile.experienceLevel,
+            photoUrl: user.profile.photos[0]?.url || null,
           };
         }
       }
@@ -159,6 +174,9 @@ function initChatSockets(io) {
         genderBucket: socket.identity.genderBucket,
         isMember: socket.identity.type === 'member',
         experienceLevel: socket.identity.experienceLevel,
+        // Photo de profil pour les membres, rien pour les invités (voir
+        // PeerIcon côté client, qui affiche une icône générique "invité").
+        photoUrl: socket.identity.photoUrl || null,
         // Uniquement pour les membres identifiés : permet à la fiche profil
         // d'ouvrir directement une discussion privée avec ce membre s'il est
         // présent dans le salon (voir chat:privateOpenWith).
@@ -169,6 +187,14 @@ function initChatSockets(io) {
     });
 
     socket.on('chat:leave', leaveCurrentRoom);
+
+    // Aperçu en lecture seule des connectés d'un département, sans rejoindre
+    // le salon (pas d'ajout à roomUsers, pas de diffusion) — utilisé sur
+    // l'écran de sélection pour montrer qui est là avant de s'engager.
+    socket.on('chat:peekUsers', (department) => {
+      if (!DEPARTMENT_CODES.has(department)) return;
+      socket.emit('chat:peekUsers', { department, users: usersSnapshot(department) });
+    });
 
     socket.on('chat:message', async (content) => {
       if (!currentDept || !socket.identity) return;

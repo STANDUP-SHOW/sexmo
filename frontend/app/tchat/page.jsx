@@ -18,7 +18,16 @@ const GENDER_ORDER = ['HOMME', 'FEMME', 'TRANS', 'AUTRE'];
 const MAX_PRIVATE_THREADS = 25;
 
 function PeerIcon({ peer }) {
-  if (!peer.isMember) return null;
+  if (!peer.isMember) {
+    return <span title="Invité·e (sans compte)" className="text-neutral-400 inline-block align-middle">👤</span>;
+  }
+  if (peer.photoUrl) {
+    return (
+      <span className="inline-block w-4 h-4 rounded-full overflow-hidden align-middle bg-neutral-200" title={peer.pseudo}>
+        <img src={mediaUrl(peer.photoUrl)} alt="" className="w-full h-full object-cover" />
+      </span>
+    );
+  }
   if (peer.experienceLevel) return <span title={peer.experienceLevel}>{EXPERIENCE_LEVEL_EMOJI[peer.experienceLevel]}</span>;
   return <span title="Membre sexmo"><LogoMark className="h-3.5 w-3.5 inline-block align-middle" /></span>;
 }
@@ -53,6 +62,9 @@ function TchatPageInner() {
   const [sendingPhoto, setSendingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState('');
   const [inviteNotice, setInviteNotice] = useState(null);
+  const [peekUsers, setPeekUsers] = useState(null); // aperçu des connectés du salon conseillé, avant de rejoindre
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState('');
   const autoOpenedRef = useRef(false);
   const pendingSelfOpenRef = useRef(new Set());
   const bottomRef = useRef(null);
@@ -60,6 +72,38 @@ function TchatPageInner() {
   useEffect(() => {
     apiFetch('/api/chat/departments').then((d) => setDepartments(d.departments)).catch(() => {});
   }, []);
+
+  // Demande un aperçu (lecture seule) des connectés dès qu'un salon est
+  // conseillé, pour les montrer avant même de rejoindre.
+  useEffect(() => {
+    if (!recommendedDept) { setPeekUsers(null); return; }
+    getChatSocket().emit('chat:peekUsers', recommendedDept);
+  }, [recommendedDept]);
+
+  const locateMe = () => {
+    setLocateError('');
+    if (!navigator.geolocation) {
+      setLocateError("La géolocalisation n'est pas disponible sur ce navigateur.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { city: nearest } = await apiFetch(`/api/public/nearest-city?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
+          setCity(nearest);
+        } catch (err) {
+          setLocateError(err.message);
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocateError('Localisation refusée ou indisponible.');
+        setLocating(false);
+      }
+    );
+  };
 
   // Arrivée depuis "Tchatter" sur une fiche profil : dès que la personne
   // ciblée apparaît dans le salon (elle doit y être connectée), on ouvre la
@@ -108,6 +152,7 @@ function TchatPageInner() {
       setActiveThreadId((id) => (id === threadId ? null : id));
     };
     const onLimitReached = () => setLimitNotice(`Maximum ${MAX_PRIVATE_THREADS} discussions privées ouvertes en même temps.`);
+    const onPeekUsers = ({ department, users }) => setPeekUsers({ department, users });
 
     socket.on('chat:counts', onCounts);
     socket.on('chat:identified', onIdentified);
@@ -118,6 +163,7 @@ function TchatPageInner() {
     socket.on('chat:privateMessage', onPrivateMessage);
     socket.on('chat:privateClosed', onPrivateClosed);
     socket.on('chat:privateLimitReached', onLimitReached);
+    socket.on('chat:peekUsers', onPeekUsers);
     return () => {
       socket.off('chat:counts', onCounts);
       socket.off('chat:identified', onIdentified);
@@ -128,6 +174,7 @@ function TchatPageInner() {
       socket.off('chat:privateMessage', onPrivateMessage);
       socket.off('chat:privateClosed', onPrivateClosed);
       socket.off('chat:privateLimitReached', onLimitReached);
+      socket.off('chat:peekUsers', onPeekUsers);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -226,7 +273,14 @@ function TchatPageInner() {
       <div className="max-w-2xl mx-auto">
         <AgeGate />
         <h1 className="text-2xl font-bold mb-1">Sexmo Tchat</h1>
-        <p className="text-sm text-neutral-500 mb-6">Choisissez votre département pour rejoindre le salon d'échange.</p>
+        <p className="text-sm text-neutral-500 mb-3">Choisissez votre département pour rejoindre le salon d'échange, ou laissez-vous localiser.</p>
+
+        <div className="mb-2">
+          <button type="button" onClick={locateMe} disabled={locating} className="btn-secondary text-xs">
+            📍 {locating ? 'Localisation...' : 'Me géolocaliser'}
+          </button>
+          {locateError && <span className="text-xs text-red-600 ml-2">{locateError}</span>}
+        </div>
 
         <div className="mb-4">
           <MapSearchBlock city={city} radiusKm={radiusKm} onCityChange={setCity} onRadiusChange={setRadiusKm}
@@ -234,22 +288,35 @@ function TchatPageInner() {
         </div>
 
         {recommendedDept && (
-          <div className="bg-brand-500 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-white font-bold">
-                Nous vous conseillons le tchat du {recommendedDept} : {counts[recommendedDept] || 0} connecté(s) dans votre département
-              </p>
-              {recommendedName && <p className="text-white/80 text-xs">Salon conseillé · {recommendedName}</p>}
+          <div className="bg-brand-500 rounded-xl p-4 mb-6 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-white font-bold">
+                  Nous vous conseillons le tchat du {recommendedDept} : {counts[recommendedDept] || 0} connecté(s) dans votre département
+                </p>
+                {recommendedName && <p className="text-white/80 text-xs">Salon conseillé · {recommendedName}</p>}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="bg-white/20 text-white text-sm font-semibold rounded-full px-3 py-1.5 flex items-center gap-1">
+                  👥 {counts[recommendedDept] || 0}
+                </span>
+                <button onClick={() => setDepartment(recommendedDept)}
+                  className="bg-black text-brand-500 text-sm font-semibold rounded-full px-4 py-1.5 hover:opacity-90">
+                  Go
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="bg-white/20 text-white text-sm font-semibold rounded-full px-3 py-1.5 flex items-center gap-1">
-                👥 {counts[recommendedDept] || 0}
-              </span>
-              <button onClick={() => setDepartment(recommendedDept)}
-                className="bg-black text-brand-500 text-sm font-semibold rounded-full px-4 py-1.5 hover:opacity-90">
-                Go
-              </button>
-            </div>
+            {peekUsers?.department === recommendedDept && peekUsers.users.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {peekUsers.users.map((u) => (
+                  <span key={u.socketId} className="inline-flex items-center gap-1.5 bg-white/15 rounded-full pl-1.5 pr-2.5 py-1 text-xs text-white">
+                    <PeerIcon peer={u} />
+                    <span className={`w-1.5 h-1.5 rounded-full ${GENDER_DOT_COLORS[u.genderBucket]}`} />
+                    {u.pseudo}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -5,7 +5,7 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { computeAge } = require('../utils/age');
-const { profileMatchesCity, cityRadiusMatch, getCityCoords, departmentForCity } = require('../utils/geo');
+const { profileMatchesCity, cityRadiusMatch, getCityCoords, departmentForCity, nearestCity } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
 const { toPublicProfile, likeCountsFor } = require('./profiles.routes');
 
@@ -21,6 +21,18 @@ router.get('/meta', (req, res) => {
     adCategories: ['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE'],
     orientations: ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'PANSEXUEL', 'AUTRE'],
   });
+});
+
+// Résolution position GPS -> ville connue la plus proche, utilisable sans
+// compte (ex. bouton "Me géolocaliser" du Sexmo Tchat) — jamais de position
+// stockée ni renvoyée, uniquement le nom de ville résolu.
+router.get('/nearest-city', (req, res) => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return res.status(400).json({ error: 'Coordonnées invalides' });
+  const nearest = nearestCity(lat, lng);
+  if (!nearest) return res.status(404).json({ error: 'Aucune ville trouvée' });
+  res.json({ city: nearest.name, region: nearest.region });
 });
 
 router.get('/profiles', async (req, res, next) => {
