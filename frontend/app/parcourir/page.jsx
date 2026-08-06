@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
@@ -9,8 +10,17 @@ import CityAutocomplete from '../../components/CityAutocomplete';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
 
 export default function ParcourirPage() {
+  return (
+    <Suspense fallback={null}>
+      <ParcourirPageInner />
+    </Suspense>
+  );
+}
+
+function ParcourirPageInner() {
+  const searchParams = useSearchParams();
   const [meta, setMeta] = useState({ cities: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: '', gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [filters, setFilters] = useState({ city: searchParams.get('city') || '', gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {

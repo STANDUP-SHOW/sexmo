@@ -13,14 +13,13 @@ export default function Footer() {
 
   return (
     <footer className="max-w-6xl mx-auto px-4 py-10 text-xs text-neutral-500 space-y-3">
-      {pages.length > 0 && (
-        <nav className="flex flex-wrap gap-x-4 gap-y-1">
-          {pages.map((p) => (
-            <Link key={p.slug} href={`/page/${p.slug}`} className="hover:text-brand-500">{p.title}</Link>
-          ))}
-          <Link href="/avis" className="hover:text-brand-500">Avis</Link>
-        </nav>
-      )}
+      <nav className="flex flex-wrap gap-x-4 gap-y-1">
+        {pages.map((p) => (
+          <Link key={p.slug} href={`/page/${p.slug}`} className="hover:text-brand-500">{p.title}</Link>
+        ))}
+        <Link href="/avis" className="hover:text-brand-500">Avis</Link>
+        <Link href="/rencontres" className="hover:text-brand-500">Rencontres par ville</Link>
+      </nav>
       <p>Site réservé aux personnes majeures (18 ans et plus). Toute sollicitation à caractère commercial est interdite et sanctionnée par la suppression du compte.</p>
       <p>Un abus ? Utilisez le bouton "Signaler" sur un profil, ou contactez la modération.</p>
     </footer>
