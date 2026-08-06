@@ -5,7 +5,7 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { computeAge } = require('../utils/age');
-const { profileMatchesCity, cityRadiusMatch, getCityCoords } = require('../utils/geo');
+const { profileMatchesCity, cityRadiusMatch, getCityCoords, departmentForCity } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
 const { toPublicProfile, likeCountsFor } = require('./profiles.routes');
 
@@ -88,7 +88,7 @@ router.get('/map-stats', async (req, res, next) => {
     const radius = Number(radiusKm);
     const count = candidates.filter((p) => cityRadiusMatch(p, city, radius)).length;
 
-    res.json({ city, lat: center.lat, lng: center.lng, radiusKm: radius, count });
+    res.json({ city, lat: center.lat, lng: center.lng, radiusKm: radius, count, department: departmentForCity(city) });
   } catch (err) {
     next(err);
   }

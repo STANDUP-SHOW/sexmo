@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch } from '../../lib/api';
 import { PLACE_TYPE_LABELS } from '../../lib/places';
+import MapSearchBlock from '../../components/MapSearchBlock';
+import { useSearchLocation } from '../../lib/useSearchLocation';
 
 export default function LieuxPage() {
   const { user } = useAuth();
+  const { city, radiusKm, setCity, setRadiusKm } = useSearchLocation();
   const [meta, setMeta] = useState({ departments: [], types: [] });
   const [department, setDepartment] = useState('');
   const [type, setType] = useState('');
@@ -16,6 +19,13 @@ export default function LieuxPage() {
   useEffect(() => {
     apiFetch('/api/places/meta').then(setMeta).catch(() => {});
   }, []);
+
+  // La carte donne une ville + un rayon, mais les lieux sont référencés par
+  // département (pas de coordonnées précises) : dès que la ville est
+  // résolue, on présélectionne son département dans le filtre existant.
+  const onMapResolved = (d) => {
+    if (d.department) setDepartment(d.department);
+  };
 
   const search = () => {
     const params = new URLSearchParams();
@@ -35,6 +45,8 @@ export default function LieuxPage() {
         </div>
         {user && <button className="btn-primary text-sm" onClick={() => setShowAdd(true)}>Ajouter un lieu</button>}
       </div>
+
+      <MapSearchBlock city={city} radiusKm={radiusKm} onCityChange={setCity} onRadiusChange={setRadiusKm} onResolved={onMapResolved} />
 
       <div className="flex flex-wrap gap-3">
         <select className="input w-44" value={department} onChange={(e) => setDepartment(e.target.value)}>

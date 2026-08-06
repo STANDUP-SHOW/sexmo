@@ -8,6 +8,7 @@ import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, 
 import { memberSinceLabel } from '../../lib/format';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
 import MapSearchBlock from '../../components/MapSearchBlock';
+import { useSearchLocation } from '../../lib/useSearchLocation';
 
 export default function ParcourirPage() {
   return (
@@ -19,16 +20,26 @@ export default function ParcourirPage() {
 
 function ParcourirPageInner() {
   const searchParams = useSearchParams();
+  const { city, radiusKm, setCity, setRadiusKm, ready } = useSearchLocation();
   const [meta, setMeta] = useState({ cities: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: searchParams.get('city') || '', radiusKm: 50, gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [filters, setFilters] = useState({ gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
     apiFetch('/api/public/meta').then(setMeta).catch(() => {});
   }, []);
 
+  // Un lien "Voir les annonces à {ville}" (pages SEO) impose la ville pour
+  // cette visite, en plus de la persister pour la suite de la navigation.
+  useEffect(() => {
+    const urlCity = searchParams.get('city');
+    if (urlCity) setCity(urlCity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const search = async () => {
     const params = new URLSearchParams();
+    if (city) { params.set('city', city); params.set('radiusKm', String(radiusKm)); }
     Object.entries(filters).forEach(([k, v]) => {
       if (k === 'available') { if (v) params.set('available', 'true'); return; }
       if (v) params.set(k, v);
@@ -42,9 +53,9 @@ function ParcourirPageInner() {
   };
 
   useEffect(() => {
-    search();
+    if (ready) search();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready]);
 
   return (
     <div>
@@ -54,9 +65,7 @@ function ParcourirPageInner() {
       </p>
 
       <div className="mb-6">
-        <MapSearchBlock city={filters.city} radiusKm={filters.radiusKm}
-          onCityChange={(city) => setFilters({ ...filters, city })}
-          onRadiusChange={(radiusKm) => setFilters({ ...filters, radiusKm })} />
+        <MapSearchBlock city={city} radiusKm={radiusKm} onCityChange={setCity} onRadiusChange={setRadiusKm} />
       </div>
 
       <div className="flex flex-wrap gap-3 mb-6">

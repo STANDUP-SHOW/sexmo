@@ -5,10 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
+import MapSearchBlock from '../../components/MapSearchBlock';
+import { useSearchLocation } from '../../lib/useSearchLocation';
 
 export default function GaleriePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { city, radiusKm, setCity, setRadiusKm, ready } = useSearchLocation();
   const [tab, setTab] = useState('photos');
   const [photos, setPhotos] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -18,10 +21,12 @@ export default function GaleriePage() {
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (!user) return;
-    apiFetch('/api/gallery/photos').then((d) => setPhotos(d.photos)).catch(() => {});
-    apiFetch('/api/gallery/videos').then((d) => setVideos(d.videos)).catch(() => {});
-  }, [user]);
+    if (!user || !ready) return;
+    const params = new URLSearchParams();
+    if (city) { params.set('city', city); params.set('radiusKm', String(radiusKm)); }
+    apiFetch(`/api/gallery/photos?${params.toString()}`).then((d) => setPhotos(d.photos)).catch(() => {});
+    apiFetch(`/api/gallery/videos?${params.toString()}`).then((d) => setVideos(d.videos)).catch(() => {});
+  }, [user, ready, city, radiusKm]);
 
   if (!user) return null;
 
@@ -29,6 +34,10 @@ export default function GaleriePage() {
     <div>
       <h1 className="text-2xl font-bold mb-1">Galerie des membres</h1>
       <p className="text-sm text-neutral-500 mb-6">Photos et vidéos publiées par les membres depuis leur profil.</p>
+
+      <div className="mb-6">
+        <MapSearchBlock city={city} radiusKm={radiusKm} onCityChange={setCity} onRadiusChange={setRadiusKm} />
+      </div>
 
       <div className="flex gap-2 border-b border-neutral-200 mb-6">
         {[['photos', `Photos (${photos.length})`], ['videos', `Vidéos (${videos.length})`]].map(([id, label]) => (

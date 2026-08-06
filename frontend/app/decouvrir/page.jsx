@@ -9,12 +9,14 @@ import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, 
 import { memberSinceLabel } from '../../lib/format';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
 import MapSearchBlock from '../../components/MapSearchBlock';
+import { useSearchLocation } from '../../lib/useSearchLocation';
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { city, radiusKm, setCity, setRadiusKm, ready } = useSearchLocation();
   const [meta, setMeta] = useState({ cities: [], genders: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: '', radiusKm: 50, gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [filters, setFilters] = useState({ gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
   const [matchNotice, setMatchNotice] = useState(null);
 
@@ -28,6 +30,7 @@ export default function DiscoverPage() {
 
   const search = async () => {
     const params = new URLSearchParams();
+    if (city) { params.set('city', city); params.set('radiusKm', String(radiusKm)); }
     Object.entries(filters).forEach(([k, v]) => {
       if (k === 'available') { if (v) params.set('available', 'true'); return; }
       if (v) params.set(k, v);
@@ -41,9 +44,9 @@ export default function DiscoverPage() {
   };
 
   useEffect(() => {
-    if (user) search();
+    if (user && ready) search();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, ready]);
 
   const like = async (profileId) => {
     const res = await apiFetch(`/api/likes/${profileId}`, { method: 'POST' });
@@ -57,9 +60,7 @@ export default function DiscoverPage() {
       <h1 className="text-2xl font-bold mb-4">Découvrir</h1>
 
       <div className="mb-6">
-        <MapSearchBlock city={filters.city} radiusKm={filters.radiusKm}
-          onCityChange={(city) => setFilters({ ...filters, city })}
-          onRadiusChange={(radiusKm) => setFilters({ ...filters, radiusKm })} />
+        <MapSearchBlock city={city} radiusKm={radiusKm} onCityChange={setCity} onRadiusChange={setRadiusKm} />
       </div>
 
       <div className="flex flex-wrap gap-3 mb-6">

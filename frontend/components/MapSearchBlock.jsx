@@ -34,7 +34,7 @@ function zoomForRadius(radiusKm) {
 // une pastille rose + un cercle représentant le rayon de recherche (curseur
 // 0-50 km, 50 par défaut), et une vignette avec le nombre de membres dans la
 // zone. Pilote city/radiusKm côté page appelante (filtres de recherche).
-export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusChange }) {
+export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusChange, onResolved }) {
   const { isLoaded } = useJsApiLoader({
     id: 'sexmo-google-maps',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY || '',
@@ -46,6 +46,8 @@ export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusC
   const [notFound, setNotFound] = useState(false);
   const mapRef = useRef(null);
   const debounceRef = useRef(null);
+  const onResolvedRef = useRef(onResolved);
+  onResolvedRef.current = onResolved;
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -61,6 +63,7 @@ export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusC
           setPoint({ lat: d.lat, lng: d.lng });
           setCount(d.count);
           setNotFound(false);
+          onResolvedRef.current?.(d);
           if (mapRef.current) {
             mapRef.current.panTo({ lat: d.lat, lng: d.lng });
             mapRef.current.setZoom(zoomForRadius(radiusKm));
