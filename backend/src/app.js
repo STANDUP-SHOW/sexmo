@@ -26,6 +26,7 @@ const publicRoutes = require('./routes/public.routes');
 const adminMembersRoutes = require('./routes/adminMembers.routes');
 const chatRoutes = require('./routes/chat.routes');
 const placesRoutes = require('./routes/places.routes');
+const adminGalleriesRoutes = require('./routes/adminGalleries.routes');
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/admin/members', adminMembersRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/places', placesRoutes);
+app.use('/api/admin/galleries', adminGalleriesRoutes);
 
 app.use(errorHandler);
 

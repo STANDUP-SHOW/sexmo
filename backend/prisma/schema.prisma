@@ -470,3 +470,34 @@ model MeetingPlace {
   @@index([department, type])
   @@map("meeting_places")
 }
+
+// Galeries du back-office : collections nommées de photos importées en masse
+// par l'admin (ex. soirées, événements), distinctes de la galerie publique
+// "Photos des membres" (Photo.publishedToGallery). Chaque photo porte ses
+// propres métadonnées, extraites du nom de fichier au moment de l'import
+// (voir adminGalleries.routes.js) — pas de lien vers un compte/profil réel :
+// c'est un simple champ texte libre, pas une identité vérifiée.
+model Gallery {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  photos GalleryPhoto[]
+
+  @@map("galleries")
+}
+
+model GalleryPhoto {
+  id           String   @id @default(cuid())
+  galleryId    String
+  gallery      Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  url          String
+  authorPseudo String
+  genre        String?
+  ville        String?
+  publishedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([galleryId])
+  @@map("gallery_photos")
+}

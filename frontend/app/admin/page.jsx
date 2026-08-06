@@ -10,6 +10,7 @@ import MembersTab from '../../components/admin/MembersTab';
 import ImportTab from '../../components/admin/ImportTab';
 import PagesTab from '../../components/admin/PagesTab';
 import PlacesTab from '../../components/admin/PlacesTab';
+import GalleriesTab from '../../components/admin/GalleriesTab';
 import CommentsTab from '../../components/admin/CommentsTab';
 import TestimonialsTab from '../../components/admin/TestimonialsTab';
 import SettingsTab from '../../components/admin/SettingsTab';
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'import', label: 'Import' },
   { id: 'pages', label: 'Pages' },
   { id: 'places', label: 'Lieux' },
+  { id: 'galleries', label: 'Galeries' },
   { id: 'comments', label: 'Commentaires' },
   { id: 'testimonials', label: 'Avis' },
   { id: 'settings', label: 'Personnalisation' },
@@ -76,6 +78,7 @@ export default function AdminPage() {
       {tab === 'import' && <ImportTab />}
       {tab === 'pages' && <PagesTab />}
       {tab === 'places' && <PlacesTab />}
+      {tab === 'galleries' && <GalleriesTab />}
       {tab === 'comments' && <CommentsTab />}
       {tab === 'testimonials' && <TestimonialsTab />}
       {tab === 'settings' && <SettingsTab />}

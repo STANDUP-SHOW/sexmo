@@ -93,6 +93,21 @@ router.get('/chat-photos/:filename', async (req, res, next) => {
   }
 });
 
+// Photo d'une galerie du back-office (voir adminGalleries.routes.js). Simple
+// contenu éditorial géré par l'admin, pas de vérification de propriétaire.
+router.get('/gallery-photos/:filename', async (req, res, next) => {
+  try {
+    const filename = req.params.filename;
+    const photo = await prisma.galleryPhoto.findFirst({ where: { url: `/media/gallery-photos/${filename}` } });
+    if (!photo) return res.status(404).json({ error: 'Photo introuvable' });
+
+    const ext = filename.slice(filename.lastIndexOf('.')).toLowerCase();
+    streamFile(res, filename, IMAGE_CONTENT_TYPES[ext] || 'application/octet-stream');
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/videos/:filename', optionalAuth, async (req, res, next) => {
   try {
     const filename = req.params.filename;
