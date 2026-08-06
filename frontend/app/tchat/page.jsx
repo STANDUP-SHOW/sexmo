@@ -48,7 +48,9 @@ function TchatPageInner() {
   const [limitNotice, setLimitNotice] = useState('');
   const [sendingPhoto, setSendingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const [inviteNotice, setInviteNotice] = useState(null);
   const autoOpenedRef = useRef(false);
+  const pendingSelfOpenRef = useRef(new Set());
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -63,8 +65,9 @@ function TchatPageInner() {
     const match = roomUsers.find((u) => u.profileId === targetProfileId);
     if (match) {
       autoOpenedRef.current = true;
-      getChatSocket().emit('chat:privateOpen', match.socketId);
+      openPrivate(match.socketId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomUsers, targetProfileId]);
 
   // Connexion socket immédiate (observateur) dès l'arrivée sur la page,
@@ -78,7 +81,16 @@ function TchatPageInner() {
     const onBanned = () => setBanned(true);
 
     const onPrivateOpened = ({ threadId, peer }) => {
+      const wasSelfInitiated = pendingSelfOpenRef.current.has(threadId);
+      pendingSelfOpenRef.current.delete(threadId);
       setThreads((t) => (t.some((x) => x.threadId === threadId) ? t : [...t, { threadId, peer, messages: [], unread: false }]));
+      // Ouvre directement la fenêtre de discussion, pour soi comme pour la
+      // personne invitée — qui voit en plus un message d'invitation explicite.
+      setActiveThreadId(threadId);
+      if (!wasSelfInitiated) {
+        setInviteNotice(`${peer.pseudo} vous invite à tchatter, rejoindre ?`);
+        setTimeout(() => setInviteNotice(null), 6000);
+      }
     };
     const onPrivateMessage = (msg) => {
       setThreads((t) => t.map((x) => (x.threadId === msg.threadId
@@ -174,8 +186,10 @@ function TchatPageInner() {
   };
 
   const openPrivate = (targetSocketId) => {
-    if (targetSocketId === getChatSocket().id) return;
-    getChatSocket().emit('chat:privateOpen', targetSocketId);
+    const socket = getChatSocket();
+    if (targetSocketId === socket.id) return;
+    pendingSelfOpenRef.current.add([socket.id, targetSocketId].sort().join(':'));
+    socket.emit('chat:privateOpen', targetSocketId);
   };
 
   const closePrivate = (threadId) => {
@@ -261,11 +275,17 @@ function TchatPageInner() {
         {limitNotice && (
           <p className="text-xs text-red-600 py-1 cursor-pointer" onClick={() => setLimitNotice('')}>{limitNotice} (fermer)</p>
         )}
+        {inviteNotice && (
+          <p className="text-xs bg-brand-50 text-brand-700 border border-brand-200 rounded-lg px-3 py-2 my-1 cursor-pointer"
+            onClick={() => setInviteNotice(null)}>
+            {inviteNotice}
+          </p>
+        )}
 
         <div className="flex gap-1 overflow-x-auto py-2 border-b border-neutral-200">
           <button onClick={() => switchTab(null)}
             className={`text-xs whitespace-nowrap rounded-full px-3 py-1 border ${!activeThreadId ? 'bg-brand-500 border-brand-500 text-white' : 'border-neutral-300 text-neutral-600'}`}>
-            Salon
+            Salon {department}
           </button>
           {threads.map((t) => (
             <button key={t.threadId} onClick={() => switchTab(t.threadId)}

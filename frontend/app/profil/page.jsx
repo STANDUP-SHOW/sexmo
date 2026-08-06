@@ -27,6 +27,8 @@ export default function ProfilePage() {
   const [practices, setPractices] = useState([]);
   const [orientation, setOrientation] = useState('');
   const [sexRole, setSexRole] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+  const [weightKg, setWeightKg] = useState('');
   const [bodyType, setBodyType] = useState('');
   const [eyeColor, setEyeColor] = useState('');
   const [adCategory, setAdCategory] = useState('');
@@ -77,6 +79,8 @@ export default function ProfilePage() {
     setPractices(user.profile?.practices || []);
     setOrientation(user.profile?.orientation || '');
     setSexRole(user.profile?.sexRole || '');
+    setHeightCm(user.profile?.heightCm ?? '');
+    setWeightKg(user.profile?.weightKg ?? '');
     setBodyType(user.profile?.bodyType || '');
     setEyeColor(user.profile?.eyeColor || '');
     setAdCategory(user.profile?.adCategory || '');
@@ -165,6 +169,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           bio, city, visible, interests, practices, privatePhotosAccess,
           orientation: orientation || undefined, sexRole: sexRole || null,
+          heightCm: heightCm === '' ? null : Number(heightCm), weightKg: weightKg === '' ? null : Number(weightKg),
           bodyType: bodyType || null, eyeColor: eyeColor || null, adCategory: adCategory || null,
           experienceLevel: experienceLevel || null,
         }),
@@ -369,6 +374,18 @@ export default function ProfilePage() {
               <option value="">Non précisé</option>
               {Object.entries(SEX_ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm text-neutral-400">Taille (cm)</label>
+            <input type="number" min={100} max={250} className="input" placeholder="ex. 175"
+              value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm text-neutral-400">Poids (kg)</label>
+            <input type="number" min={30} max={250} className="input" placeholder="ex. 68"
+              value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">

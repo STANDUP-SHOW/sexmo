@@ -165,6 +165,9 @@ model Profile {
   bodyType  BodyType?
   eyeColor  EyeColor?
   sexRole   SexRole?
+  // Optionnels, auto-déclarés, affichés sur le profil public si renseignés.
+  heightCm  Int?
+  weightKg  Int?
   // Catégorie principale affichée/filtrable sur la page d'annonces.
   adCategory AdCategory?
   // Badge de niveau d'expérience auto-déclaré, affiché sur le profil public.

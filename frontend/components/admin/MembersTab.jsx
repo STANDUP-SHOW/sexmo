@@ -271,6 +271,18 @@ function MemberDetail({ id, onBack }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="text-sm text-neutral-400">Taille (cm)</label>
+                <input type="number" min={100} max={250} className="input" defaultValue={member.profile.heightCm ?? ''}
+                  onBlur={(e) => patch({ heightCm: e.target.value === '' ? null : Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400">Poids (kg)</label>
+                <input type="number" min={30} max={250} className="input" defaultValue={member.profile.weightKg ?? ''}
+                  onBlur={(e) => patch({ weightKg: e.target.value === '' ? null : Number(e.target.value) })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="text-sm text-neutral-400">Silhouette</label>
                 <select className="input" value={member.profile.bodyType || ''} onChange={(e) => patch({ bodyType: e.target.value || null })}>
                   <option value="">Non précisé</option>

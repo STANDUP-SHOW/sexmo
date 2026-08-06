@@ -138,6 +138,8 @@ const patchSchema = z.object({
   gender: z.enum(GENDERS).optional(),
   orientation: z.enum(ORIENTATIONS).optional(),
   sexRole: z.enum(SEX_ROLES).nullable().optional(),
+  heightCm: z.number().int().min(100).max(250).nullable().optional(),
+  weightKg: z.number().int().min(30).max(250).nullable().optional(),
   seeking: z.array(z.enum(GENDERS)).min(1).optional(),
   city: z.string().min(1).optional(),
   region: z.string().optional(),

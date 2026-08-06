@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../../lib/api';
-import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, SEX_ROLE_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../../lib/enums';
 import { memberSinceLabel } from '../../../lib/format';
 import { PRACTICE_LABELS } from '../../../lib/practices';
 
@@ -91,32 +91,6 @@ export default function ProfileDetailPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        {profile.photos.length > 0 && <h2 className="text-sm font-semibold text-neutral-700 mb-2">Galerie publique</h2>}
-        <div className="grid sm:grid-cols-2 gap-2">
-          {profile.photos.length > 0 ? profile.photos.map((p) => (
-            <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden bg-neutral-200">
-              <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
-              <button onClick={() => togglePhotoLike(p.id)}
-                className="absolute bottom-2 right-2 flex items-center gap-1 text-xs bg-black/60 rounded-full pl-2 pr-2.5 py-1">
-                <span className={p.likedByMe ? 'text-brand-500' : 'text-white'}>{p.likedByMe ? '♥' : '♡'}</span>
-                <span className="text-white">{p.likeCount || 0}</span>
-              </button>
-            </div>
-          )) : <p className="text-neutral-500">Pas de photo publique pour ce profil.</p>}
-        </div>
-      </div>
-
-      {profile.videos?.length > 0 && (
-        <div className="grid sm:grid-cols-2 gap-2">
-          {profile.videos.map((v) => (
-            <video key={v.id} src={mediaUrl(v.url)} controls className="aspect-video w-full rounded-lg bg-black" />
-          ))}
-        </div>
-      )}
-
-      <PrivatePhotosSection profile={profile} accessStatus={accessStatus} onRequest={requestAccess} />
-
-      <div>
         <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
           {profile.pseudo}, {profile.age ?? '—'}
           {profile.experienceLevel && <span className="text-base font-normal">{EXPERIENCE_LEVEL_LABELS[profile.experienceLevel]}</span>}
@@ -140,6 +114,15 @@ export default function ProfileDetailPage() {
           )}
           {profile.reputation?.exemplary && (
             <span className="text-xs bg-brand-500 text-white rounded-full px-2.5 py-1">✓ Membre exemplaire</span>
+          )}
+          {profile.sexRole && (
+            <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">{SEX_ROLE_LABELS[profile.sexRole]}</span>
+          )}
+          {profile.heightCm && (
+            <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">{profile.heightCm} cm</span>
+          )}
+          {profile.weightKg && (
+            <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">{profile.weightKg} kg</span>
           )}
           {profile.bodyType && (
             <span className="text-xs bg-neutral-200 rounded-full px-2.5 py-1">{BODY_TYPE_LABELS[profile.bodyType]}</span>
@@ -191,6 +174,32 @@ export default function ProfileDetailPage() {
           ))}
         </div>
       )}
+
+      <div>
+        {profile.photos.length > 0 && <h2 className="text-sm font-semibold text-neutral-700 mb-2">Galerie publique</h2>}
+        <div className="grid sm:grid-cols-2 gap-2">
+          {profile.photos.length > 0 ? profile.photos.map((p) => (
+            <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden bg-neutral-200">
+              <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
+              <button onClick={() => togglePhotoLike(p.id)}
+                className="absolute bottom-2 right-2 flex items-center gap-1 text-xs bg-black/60 rounded-full pl-2 pr-2.5 py-1">
+                <span className={p.likedByMe ? 'text-brand-500' : 'text-white'}>{p.likedByMe ? '♥' : '♡'}</span>
+                <span className="text-white">{p.likeCount || 0}</span>
+              </button>
+            </div>
+          )) : <p className="text-neutral-500">Pas de photo publique pour ce profil.</p>}
+        </div>
+      </div>
+
+      {profile.videos?.length > 0 && (
+        <div className="grid sm:grid-cols-2 gap-2">
+          {profile.videos.map((v) => (
+            <video key={v.id} src={mediaUrl(v.url)} controls className="aspect-video w-full rounded-lg bg-black" />
+          ))}
+        </div>
+      )}
+
+      <PrivatePhotosSection profile={profile} accessStatus={accessStatus} onRequest={requestAccess} />
 
       {showReport && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center px-4 z-50">
