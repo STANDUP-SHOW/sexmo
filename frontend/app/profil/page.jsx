@@ -9,7 +9,7 @@ import { getCroppedImageBlob } from '../../lib/cropImage';
 import PhotoCropModal from '../../components/PhotoCropModal';
 import CityAutocomplete from '../../components/CityAutocomplete';
 import { PRACTICE_CATEGORIES } from '../../lib/practices';
-import { BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, SEX_ROLE_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 
 const MAX_PUBLIC_PHOTOS = 5;
 const MAX_PRIVATE_PHOTOS = 20;
@@ -25,6 +25,8 @@ export default function ProfilePage() {
   const [city, setCity] = useState('');
   const [interestsText, setInterestsText] = useState('');
   const [practices, setPractices] = useState([]);
+  const [orientation, setOrientation] = useState('');
+  const [sexRole, setSexRole] = useState('');
   const [bodyType, setBodyType] = useState('');
   const [eyeColor, setEyeColor] = useState('');
   const [adCategory, setAdCategory] = useState('');
@@ -39,6 +41,8 @@ export default function ProfilePage() {
   const [photos, setPhotos] = useState([]);
   const [videos, setVideos] = useState([]);
   const [accessRequests, setAccessRequests] = useState([]);
+  const [likesReceived, setLikesReceived] = useState([]);
+  const [matches, setMatches] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -60,12 +64,19 @@ export default function ProfilePage() {
     apiFetch('/api/photo-access/requests').then((d) => setAccessRequests(d.requests)).catch(() => {});
   };
 
+  const refreshLikesAndMatches = () => {
+    apiFetch('/api/likes/received').then((d) => setLikesReceived(d.profiles)).catch(() => {});
+    apiFetch('/api/messages/conversations').then((d) => setMatches(d.conversations)).catch(() => {});
+  };
+
   useEffect(() => {
     if (!user) return;
     setBio(user.profile?.bio || '');
     setCity(user.profile?.city || '');
     setInterestsText((user.profile?.interests || []).join(', '));
     setPractices(user.profile?.practices || []);
+    setOrientation(user.profile?.orientation || '');
+    setSexRole(user.profile?.sexRole || '');
     setBodyType(user.profile?.bodyType || '');
     setEyeColor(user.profile?.eyeColor || '');
     setAdCategory(user.profile?.adCategory || '');
@@ -79,6 +90,7 @@ export default function ProfilePage() {
     apiFetch('/api/videos/mine').then((d) => setVideos(d.videos)).catch(() => {});
     refreshQuality();
     refreshRequests();
+    refreshLikesAndMatches();
   }, [user]);
 
   if (!user) return null;
@@ -152,6 +164,7 @@ export default function ProfilePage() {
         method: 'PATCH',
         body: JSON.stringify({
           bio, city, visible, interests, practices, privatePhotosAccess,
+          orientation: orientation || undefined, sexRole: sexRole || null,
           bodyType: bodyType || null, eyeColor: eyeColor || null, adCategory: adCategory || null,
           experienceLevel: experienceLevel || null,
         }),
@@ -284,6 +297,12 @@ export default function ProfilePage() {
     setAccessRequests((r) => r.filter((req) => req.id !== id));
   };
 
+  const likeBack = async (profileId) => {
+    const res = await apiFetch(`/api/likes/${profileId}`, { method: 'POST' });
+    setLikesReceived((l) => l.filter((p) => p.id !== profileId));
+    if (res.matched) refreshLikesAndMatches();
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <Link href={`/profil/${user.profile?.id}`} className="btn-primary w-full text-center block">
@@ -337,6 +356,21 @@ export default function ProfilePage() {
           )}
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-sm text-neutral-400">Orientation</label>
+            <select className="input" value={orientation} onChange={(e) => setOrientation(e.target.value)}>
+              {Object.entries(ORIENTATION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm text-neutral-400">Position</label>
+            <select className="input" value={sexRole} onChange={(e) => setSexRole(e.target.value)}>
+              <option value="">Non précisé</option>
+              {Object.entries(SEX_ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm text-neutral-400">Silhouette</label>
@@ -440,6 +474,33 @@ export default function ProfilePage() {
           ) : (
             <p className="text-sm text-green-600">Profil complet, bravo !</p>
           )}
+        </section>
+      )}
+
+      {likesReceived.length > 0 && (
+        <section className="card space-y-3">
+          <h2 className="font-semibold">Qui vous aime ({likesReceived.length})</h2>
+          {likesReceived.map((p) => (
+            <div key={p.id} className="flex items-center justify-between">
+              <Link href={`/profil/${p.id}`} className="text-sm hover:text-brand-600">
+                {p.pseudo} vous aime bien, et vous ? <span className="text-neutral-500">· {p.city}</span>
+              </Link>
+              <button className="btn-primary text-xs shrink-0" onClick={() => likeBack(p.id)}>J'aime aussi</button>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {matches.length > 0 && (
+        <section className="card space-y-3">
+          <h2 className="font-semibold">Mes matchs ({matches.length})</h2>
+          {matches.map((m) => (
+            <Link key={m.conversationId} href={`/messages/${m.conversationId}`}
+              className="flex items-center justify-between text-sm hover:text-brand-600">
+              <span>🎉 {m.otherProfile.pseudo} <span className="text-neutral-500">· {m.otherProfile.city}</span></span>
+              <span className="text-xs text-neutral-400">Voir la conversation</span>
+            </Link>
+          ))}
         </section>
       )}
 

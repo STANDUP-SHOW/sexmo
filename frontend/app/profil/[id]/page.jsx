@@ -117,9 +117,12 @@ export default function ProfileDetailPage() {
       <PrivatePhotosSection profile={profile} accessStatus={accessStatus} onRequest={requestAccess} />
 
       <div>
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
           {profile.pseudo}, {profile.age ?? '—'}
-          {profile.experienceLevel && <span className="text-base font-normal ml-2">{EXPERIENCE_LEVEL_LABELS[profile.experienceLevel]}</span>}
+          {profile.experienceLevel && <span className="text-base font-normal">{EXPERIENCE_LEVEL_LABELS[profile.experienceLevel]}</span>}
+          {profile.likeCount > 0 && (
+            <span className="text-sm font-normal text-brand-500 flex items-center gap-1">♥ {profile.likeCount}</span>
+          )}
         </h1>
         <p className="text-neutral-400">{profile.city} · {GENDER_LABELS[profile.gender]} · {ORIENTATION_LABELS[profile.orientation]}</p>
 
@@ -169,7 +172,9 @@ export default function ProfileDetailPage() {
         </button>
         <button className="btn-secondary" onClick={() => setShowReport(true)}>Signaler</button>
         <button className="btn-secondary" onClick={block}>Bloquer</button>
-        <Link href="/tchat" className="btn-secondary">Tchatter</Link>
+        <Link href={profile.department ? `/tchat?department=${profile.department}&target=${profile.id}` : '/tchat'} className="btn-secondary">
+          Tchatter
+        </Link>
         <button className="btn-primary" onClick={contact}>Contacter</button>
       </div>
 

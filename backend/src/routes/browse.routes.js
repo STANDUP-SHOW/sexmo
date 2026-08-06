@@ -4,12 +4,12 @@ const { requireAuth, requireProfile } = require('../middleware/auth');
 const { computeAge } = require('../utils/age');
 const { profileMatchesCity } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
-const { toPublicProfile } = require('./profiles.routes');
+const { toPublicProfile, likeCountsFor } = require('./profiles.routes');
 
 const router = express.Router();
 
 const GENDERS = ['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', 'COUPLE_FEMME_FEMME', 'TRANS', 'NON_BINAIRE', 'AUTRE'];
-const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'AUTRE'];
+const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'PANSEXUEL', 'AUTRE'];
 const BODY_TYPES = ['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE'];
 const EYE_COLORS = ['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE'];
 const AD_CATEGORIES = ['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE'];
@@ -60,9 +60,10 @@ router.get('/', requireAuth, requireProfile, async (req, res, next) => {
     });
 
     const page1 = filtered.slice(skip, skip + pageSize);
+    const likeCounts = await likeCountsFor(page1.map((p) => p.id));
 
     res.json({
-      profiles: page1.map((p) => toPublicProfile(p, p.user.birthDate)),
+      profiles: page1.map((p) => ({ ...toPublicProfile(p, p.user.birthDate), likeCount: likeCounts.get(p.id) || 0 })),
       total: filtered.length,
       page: Number(page),
       pageSize,

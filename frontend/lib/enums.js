@@ -11,10 +11,17 @@ export const GENDER_LABELS = {
 
 export const ORIENTATION_LABELS = {
   HETERO: 'Hétéro',
-  HOMO: 'Homo',
+  HOMO: 'Gay',
   BI: 'Bi',
-  CURIEUX: 'Curieux·se',
+  CURIEUX: 'Bi-curieux·se',
+  PANSEXUEL: "J'aime tout",
   AUTRE: 'Autre',
+};
+
+export const SEX_ROLE_LABELS = {
+  ACTIF: 'Actif',
+  PASSIF: 'Passif',
+  VERSA: 'Versatile',
 };
 
 export const BODY_TYPE_LABELS = {

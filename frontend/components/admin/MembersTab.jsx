@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch, mediaUrl } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, SEX_ROLE_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { PRACTICE_CATEGORIES } from '../../lib/practices';
 
 const STATUS_LABELS = { ACTIVE: 'Actif', SUSPENDED: 'Suspendu', BANNED: 'Banni' };
@@ -246,6 +246,13 @@ function MemberDetail({ id, onBack }) {
                 <label className="text-sm text-neutral-400">Orientation</label>
                 <select className="input" value={member.profile.orientation} onChange={(e) => patch({ orientation: e.target.value })}>
                   {Object.entries(ORIENTATION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400">Position</label>
+                <select className="input" value={member.profile.sexRole || ''} onChange={(e) => patch({ sexRole: e.target.value || null })}>
+                  <option value="">Non précisé</option>
+                  {Object.entries(SEX_ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
             </div>

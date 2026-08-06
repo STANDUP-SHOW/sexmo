@@ -23,7 +23,13 @@ router.post('/:profileId', requireAuth, requireProfile, async (req, res, next) =
       where: { fromProfileId_toProfileId: { fromProfileId: targetId, toProfileId: myId } },
     });
 
+    const io = req.app.get('io');
+
     if (!reciprocal) {
+      // Pas encore réciproque : on prévient quand même la personne aimée,
+      // façon "X vous aime bien, et vous ?" — elle peut liker en retour
+      // depuis la notification pour transformer ça en match immédiatement.
+      io?.to(`profile:${targetId}`).emit('like:received', { fromProfileId: myId, fromPseudo: req.user.profile.pseudo });
       return res.json({ matched: false });
     }
 
@@ -40,8 +46,11 @@ router.post('/:profileId', requireAuth, requireProfile, async (req, res, next) =
       create: { matchId: match.id },
     });
 
-    const io = req.app.get('io');
-    io?.to(`profile:${targetId}`).emit('match:new', { matchId: match.id, conversationId: conversation.id });
+    io?.to(`profile:${targetId}`).emit('match:new', {
+      matchId: match.id,
+      conversationId: conversation.id,
+      fromPseudo: req.user.profile.pseudo,
+    });
 
     res.json({ matched: true, matchId: match.id, conversationId: conversation.id });
   } catch (err) {
@@ -51,8 +60,17 @@ router.post('/:profileId', requireAuth, requireProfile, async (req, res, next) =
 
 router.get('/received', requireAuth, requireProfile, async (req, res, next) => {
   try {
+    const myId = req.user.profile.id;
+
+    // On exclut les profils déjà matchés : ils sont dans "Mes matchs" /
+    // messages, pas besoin de les repousser ici en plus.
+    const matches = await prisma.match.findMany({
+      where: { OR: [{ profileAId: myId }, { profileBId: myId }] },
+    });
+    const matchedIds = new Set(matches.map((m) => (m.profileAId === myId ? m.profileBId : m.profileAId)));
+
     const likes = await prisma.like.findMany({
-      where: { toProfileId: req.user.profile.id },
+      where: { toProfileId: myId, fromProfileId: { notIn: [...matchedIds] } },
       include: { fromProfile: { include: { photos: true } } },
       orderBy: { createdAt: 'desc' },
     });

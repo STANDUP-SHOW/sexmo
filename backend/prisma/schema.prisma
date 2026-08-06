@@ -38,7 +38,17 @@ enum Orientation {
   HOMO
   BI
   CURIEUX
+  // "J'aime tout" — attirance non genrée / pansexuelle.
+  PANSEXUEL
   AUTRE
+}
+
+// Position/rôle sexuel auto-déclaré, optionnel — pertinent surtout pour les
+// orientations HOMO/BI/PANSEXUEL mais laissé ouvert à tous les profils.
+enum SexRole {
+  ACTIF
+  PASSIF
+  VERSA
 }
 
 enum BodyType {
@@ -154,6 +164,7 @@ model Profile {
   practices String[] @default([])
   bodyType  BodyType?
   eyeColor  EyeColor?
+  sexRole   SexRole?
   // Catégorie principale affichée/filtrable sur la page d'annonces.
   adCategory AdCategory?
   // Badge de niveau d'expérience auto-déclaré, affiché sur le profil public.

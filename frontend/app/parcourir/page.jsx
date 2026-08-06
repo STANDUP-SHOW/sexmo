@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../../lib/api';
-import { GENDER_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
 import CityAutocomplete from '../../components/CityAutocomplete';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
 
 export default function ParcourirPage() {
-  const [meta, setMeta] = useState({ cities: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: '', gender: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [meta, setMeta] = useState({ cities: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
+  const [filters, setFilters] = useState({ city: '', gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
@@ -51,6 +51,10 @@ export default function ParcourirPage() {
         <select className="input w-40" value={filters.gender} onChange={(e) => setFilters({ ...filters, gender: e.target.value })}>
           <option value="">Tous profils</option>
           {Object.entries(GENDER_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <select className="input w-40" value={filters.orientation} onChange={(e) => setFilters({ ...filters, orientation: e.target.value })}>
+          <option value="">Toutes orientations</option>
+          {(meta.orientations || []).map((k) => <option key={k} value={k}>{ORIENTATION_LABELS[k]}</option>)}
         </select>
         <input type="number" min={18} className="input w-24" placeholder="Âge min"
           value={filters.minAge} onChange={(e) => setFilters({ ...filters, minAge: e.target.value })} />

@@ -1,19 +1,58 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../lib/AuthContext';
 import { useSettings } from '../lib/SettingsContext';
 import { mediaUrl } from '../lib/api';
 import { splitBrandName } from '../lib/splitBrandName';
+import { getSocket } from '../lib/socket';
 import LogoMark from './LogoMark';
 
 export default function Header() {
   const { user, logout, impersonating, stopImpersonating } = useAuth();
   const { siteName, logoUrl } = useSettings();
   const [first, second] = splitBrandName(siteName);
+  const [notices, setNotices] = useState([]);
+
+  useEffect(() => {
+    if (!user?.profile) return;
+    const socket = getSocket();
+
+    const pushNotice = (notice) => {
+      const id = crypto.randomUUID();
+      setNotices((n) => [...n, { id, ...notice }]);
+      setTimeout(() => setNotices((n) => n.filter((x) => x.id !== id)), 8000);
+    };
+
+    const onLikeReceived = ({ fromPseudo, fromProfileId }) => {
+      pushNotice({ kind: 'like', text: `${fromPseudo} vous aime bien, et vous ?`, href: `/profil/${fromProfileId}` });
+    };
+    const onMatchNew = ({ fromPseudo, conversationId }) => {
+      pushNotice({ kind: 'match', text: `🎉 C'est un match avec ${fromPseudo} ! Félicitations`, href: `/messages/${conversationId}` });
+    };
+
+    socket.on('like:received', onLikeReceived);
+    socket.on('match:new', onMatchNew);
+    return () => {
+      socket.off('like:received', onLikeReceived);
+      socket.off('match:new', onMatchNew);
+    };
+  }, [user?.profile]);
 
   return (
     <header className="border-b border-ink-800 sticky top-0 bg-ink-900/95 backdrop-blur z-20">
+      {notices.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-xs">
+          {notices.map((n) => (
+            <Link key={n.id} href={n.href}
+              className={`block text-sm rounded-lg px-4 py-3 shadow-lg text-white ${n.kind === 'match' ? 'bg-brand-500' : 'bg-ink-800'}`}
+              onClick={() => setNotices((cur) => cur.filter((x) => x.id !== n.id))}>
+              {n.text}
+            </Link>
+          ))}
+        </div>
+      )}
       {impersonating && (
         <div className="bg-yellow-500 text-yellow-950 text-xs font-medium px-4 py-1.5 flex items-center justify-between">
           <span>Vous naviguez en tant que {user?.profile?.pseudo || user?.email}</span>

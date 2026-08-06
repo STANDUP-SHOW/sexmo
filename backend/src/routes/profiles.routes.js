@@ -6,17 +6,30 @@ const { computeAge } = require('../utils/age');
 const { computeReputation } = require('../utils/reputation');
 const { computeProfileQuality } = require('../utils/profileQuality');
 const { ALL_PRACTICE_KEYS } = require('../constants/practices');
-const { nearestCity } = require('../utils/geo');
+const { nearestCity, departmentForCity } = require('../utils/geo');
 const { isOnline } = require('../state/onlinePresence');
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const router = express.Router();
 
+// Nombre de "j'aime" reçus par profil, affiché sur les fiches publiques.
+// Une seule requête groupée plutôt qu'un COUNT par profil affiché.
+async function likeCountsFor(profileIds) {
+  if (profileIds.length === 0) return new Map();
+  const rows = await prisma.like.groupBy({
+    by: ['toProfileId'],
+    where: { toProfileId: { in: profileIds } },
+    _count: true,
+  });
+  return new Map(rows.map((r) => [r.toProfileId, r._count]));
+}
+
 const updateSchema = z.object({
   pseudo: z.string().min(2).max(30).optional(),
   gender: z.enum(['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', 'COUPLE_FEMME_FEMME', 'TRANS', 'NON_BINAIRE', 'AUTRE']).optional(),
-  orientation: z.enum(['HETERO', 'HOMO', 'BI', 'CURIEUX', 'AUTRE']).optional(),
+  orientation: z.enum(['HETERO', 'HOMO', 'BI', 'CURIEUX', 'PANSEXUEL', 'AUTRE']).optional(),
+  sexRole: z.enum(['ACTIF', 'PASSIF', 'VERSA']).nullable().optional(),
   seeking: z.array(z.string()).min(1).optional(),
   city: z.string().min(1).optional(),
   region: z.string().optional(),
@@ -77,11 +90,13 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
     seeking: profile.seeking,
     city: profile.city,
     region: profile.region,
+    department: departmentForCity(profile.city),
     bio: profile.bio,
     interests: profile.interests,
     practices: profile.practices,
     bodyType: profile.bodyType,
     eyeColor: profile.eyeColor,
+    sexRole: profile.sexRole,
     adCategory: profile.adCategory,
     experienceLevel: profile.experienceLevel,
     available: profile.available,
@@ -170,8 +185,15 @@ router.get('/:id', requireAuth, requireProfile, async (req, res, next) => {
       select: { id: true, rating: true, content: true, createdAt: true },
     });
 
+    const likeCounts = await likeCountsFor([profile.id]);
+
     res.json({
-      profile: { ...toPublicProfile(profile, profile.user.birthDate, { hasPrivateAccess, viewerId }), reputation, testimonials },
+      profile: {
+        ...toPublicProfile(profile, profile.user.birthDate, { hasPrivateAccess, viewerId }),
+        reputation,
+        testimonials,
+        likeCount: likeCounts.get(profile.id) || 0,
+      },
     });
   } catch (err) {
     next(err);
@@ -180,3 +202,4 @@ router.get('/:id', requireAuth, requireProfile, async (req, res, next) => {
 
 module.exports = router;
 module.exports.toPublicProfile = toPublicProfile;
+module.exports.likeCountsFor = likeCountsFor;

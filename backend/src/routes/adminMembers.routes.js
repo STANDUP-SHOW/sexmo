@@ -19,7 +19,8 @@ const router = express.Router();
 router.use(requireAuth, requireAdmin);
 
 const GENDERS = ['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', 'COUPLE_FEMME_FEMME', 'TRANS', 'NON_BINAIRE', 'AUTRE'];
-const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'AUTRE'];
+const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'PANSEXUEL', 'AUTRE'];
+const SEX_ROLES = ['ACTIF', 'PASSIF', 'VERSA'];
 
 // --- Liste / recherche ---
 
@@ -136,6 +137,7 @@ const patchSchema = z.object({
   pseudo: z.string().min(2).max(30).optional(),
   gender: z.enum(GENDERS).optional(),
   orientation: z.enum(ORIENTATIONS).optional(),
+  sexRole: z.enum(SEX_ROLES).nullable().optional(),
   seeking: z.array(z.enum(GENDERS)).min(1).optional(),
   city: z.string().min(1).optional(),
   region: z.string().optional(),

@@ -91,6 +91,7 @@ function initChatSockets(io) {
           socket.identity = {
             type: 'member',
             userId: user.id,
+            profileId: user.profile.id,
             pseudo: user.profile.pseudo,
             genderBucket: genderBucket(user.profile.gender),
             experienceLevel: user.profile.experienceLevel,
@@ -156,6 +157,10 @@ function initChatSockets(io) {
         genderBucket: socket.identity.genderBucket,
         isMember: socket.identity.type === 'member',
         experienceLevel: socket.identity.experienceLevel,
+        // Uniquement pour les membres identifiés : permet à la fiche profil
+        // d'ouvrir directement une discussion privée avec ce membre s'il est
+        // présent dans le salon (voir chat:privateOpenWith).
+        profileId: socket.identity.type === 'member' ? socket.identity.profileId : null,
       });
       chat.to(`chat:${department}`).emit('chat:users', usersSnapshot(department));
       chat.emit('chat:counts', countsSnapshot());

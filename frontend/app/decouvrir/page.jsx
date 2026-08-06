@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch } from '../../lib/api';
-import { GENDER_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
+import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
 import CityAutocomplete from '../../components/CityAutocomplete';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
@@ -13,8 +13,8 @@ import ProfileCardPhotos from '../../components/ProfileCardPhotos';
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [meta, setMeta] = useState({ cities: [], genders: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: '', gender: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [meta, setMeta] = useState({ cities: [], genders: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
+  const [filters, setFilters] = useState({ city: '', gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
   const [matchNotice, setMatchNotice] = useState(null);
 
@@ -65,6 +65,11 @@ export default function DiscoverPage() {
         <select className="input w-48" value={filters.gender} onChange={(e) => setFilters({ ...filters, gender: e.target.value })}>
           <option value="">Tous profils</option>
           {meta.genders.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}
+        </select>
+
+        <select className="input w-40" value={filters.orientation} onChange={(e) => setFilters({ ...filters, orientation: e.target.value })}>
+          <option value="">Toutes orientations</option>
+          {(meta.orientations || []).map((k) => <option key={k} value={k}>{ORIENTATION_LABELS[k]}</option>)}
         </select>
 
         <input type="number" min={18} className="input w-24" placeholder="Âge min"

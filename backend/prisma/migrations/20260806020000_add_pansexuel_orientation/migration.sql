@@ -1,0 +1,1 @@
+ALTER TYPE "Orientation" ADD VALUE 'PANSEXUEL';

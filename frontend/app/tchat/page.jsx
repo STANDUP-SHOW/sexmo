@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../lib/api';
 import { getChatSocket, identifyAsGuest, disconnectChatSocket } from '../../lib/chatSocket';
@@ -21,10 +22,20 @@ function PeerIcon({ peer }) {
 }
 
 export default function TchatPage() {
+  return (
+    <Suspense fallback={null}>
+      <TchatPageInner />
+    </Suspense>
+  );
+}
+
+function TchatPageInner() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const targetProfileId = searchParams.get('target');
   const [departments, setDepartments] = useState([]);
   const [counts, setCounts] = useState({});
-  const [department, setDepartment] = useState(null);
+  const [department, setDepartment] = useState(searchParams.get('department') || null);
   const [guestPseudo, setGuestPseudo] = useState('');
   const [guestGender, setGuestGender] = useState('HOMME');
   const [identified, setIdentified] = useState(false);
@@ -37,11 +48,24 @@ export default function TchatPage() {
   const [limitNotice, setLimitNotice] = useState('');
   const [sendingPhoto, setSendingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const autoOpenedRef = useRef(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     apiFetch('/api/chat/departments').then((d) => setDepartments(d.departments)).catch(() => {});
   }, []);
+
+  // Arrivée depuis "Tchatter" sur une fiche profil : dès que la personne
+  // ciblée apparaît dans le salon (elle doit y être connectée), on ouvre la
+  // discussion privée avec elle automatiquement, une seule fois.
+  useEffect(() => {
+    if (!targetProfileId || autoOpenedRef.current) return;
+    const match = roomUsers.find((u) => u.profileId === targetProfileId);
+    if (match) {
+      autoOpenedRef.current = true;
+      getChatSocket().emit('chat:privateOpen', match.socketId);
+    }
+  }, [roomUsers, targetProfileId]);
 
   // Connexion socket immédiate (observateur) dès l'arrivée sur la page,
   // pour afficher les compteurs par département avant même de rejoindre.

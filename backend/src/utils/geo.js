@@ -1,4 +1,5 @@
 const FRENCH_CITIES = require('../data/frenchCities');
+const CITY_TO_DEPARTMENT = require('../data/cityToDepartment.json');
 
 const CITY_COORDS = new Map(
   FRENCH_CITIES.map((c) => [c.name.trim().toLowerCase(), { lat: c.lat, lng: c.lng }])
@@ -7,6 +8,22 @@ const CITY_COORDS = new Map(
 function getCityCoords(cityName) {
   if (!cityName) return null;
   return CITY_COORDS.get(cityName.trim().toLowerCase()) || null;
+}
+
+function normalizeCityKey(name) {
+  return String(name || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+// Code département (2-3 chiffres) pour une ville donnée, utilisé pour
+// pré-sélectionner le salon Sexmo Tchat du département d'un membre depuis
+// son profil — dérivé de la base officielle des communes (34 000+ entrées),
+// pas d'une simple liste de grandes villes.
+function departmentForCity(cityName) {
+  if (!cityName) return null;
+  return CITY_TO_DEPARTMENT[normalizeCityKey(cityName)] || null;
 }
 
 // Distance à vol d'oiseau entre deux centres-villes, arrondie à 5 km près :
@@ -65,4 +82,4 @@ function profileMatchesCity(profile, cityFilter) {
   return haversineKm(profile.latitude, profile.longitude, target.lat, target.lng) <= profile.radiusKm;
 }
 
-module.exports = { getCityCoords, approximateDistanceKm, haversineKm, nearestCity, profileMatchesCity };
+module.exports = { getCityCoords, approximateDistanceKm, haversineKm, nearestCity, profileMatchesCity, departmentForCity };
