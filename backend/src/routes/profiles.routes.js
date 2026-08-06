@@ -7,6 +7,7 @@ const { computeReputation } = require('../utils/reputation');
 const { computeProfileQuality } = require('../utils/profileQuality');
 const { ALL_PRACTICE_KEYS } = require('../constants/practices');
 const { nearestCity } = require('../utils/geo');
+const { isOnline } = require('../state/onlinePresence');
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -61,7 +62,7 @@ router.patch('/me', requireAuth, requireProfile, async (req, res, next) => {
 });
 
 function toPublicProfile(profile, ownerBirthDate, options = {}) {
-  const { hasPrivateAccess = false } = options;
+  const { hasPrivateAccess = false, viewerId = null } = options;
   const approved = (profile.photos || [])
     .filter((p) => p.moderationStatus === 'APPROVED')
     .sort((a, b) => a.position - b.position);
@@ -84,12 +85,19 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
     adCategory: profile.adCategory,
     experienceLevel: profile.experienceLevel,
     available: profile.available,
+    online: isOnline(profile.id),
     useGeolocation: profile.useGeolocation,
     radiusKm: profile.radiusKm,
     age: ownerBirthDate ? computeAge(ownerBirthDate) : null,
     lastActiveAt: profile.lastActiveAt,
     memberSinceDays: Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / MS_PER_DAY),
-    photos: publicPhotos.map((p) => ({ id: p.id, url: p.url, isPrivate: false })),
+    photos: publicPhotos.map((p) => ({
+      id: p.id,
+      url: p.url,
+      isPrivate: false,
+      likeCount: p.likes ? p.likes.length : 0,
+      likedByMe: viewerId ? (p.likes || []).some((l) => l.profileId === viewerId) : false,
+    })),
     privatePhotoCount: privatePhotos.length,
     hasPrivateAccess,
     privatePhotosAccess: profile.privatePhotosAccess,
@@ -124,7 +132,7 @@ router.get('/:id', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const profile = await prisma.profile.findUnique({
       where: { id: req.params.id },
-      include: { photos: true, videos: true, user: true },
+      include: { photos: { include: { likes: { select: { profileId: true } } } }, videos: true, user: true },
     });
     if (!profile || !profile.visible) return res.status(404).json({ error: 'Profil introuvable' });
 
@@ -150,7 +158,21 @@ router.get('/:id', requireAuth, requireProfile, async (req, res, next) => {
 
     const reputation = await computeReputation(profile);
 
-    res.json({ profile: { ...toPublicProfile(profile, profile.user.birthDate, { hasPrivateAccess }), reputation } });
+    // Avis publiés par ce membre sur le site (voir /api/testimonials) —
+    // affichés comme signal de confiance sur sa fiche. Volontairement PAS un
+    // système d'avis laissés par d'autres membres SUR ce profil : ouvrir la
+    // notation entre membres sur une plateforme libertine créerait un risque
+    // réel de diffamation/harcèlement ciblé, déjà écarté pour ce projet.
+    const testimonials = await prisma.testimonial.findMany({
+      where: { authorUserId: profile.user.id, status: 'APPROVED' },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, rating: true, content: true, createdAt: true },
+    });
+
+    res.json({
+      profile: { ...toPublicProfile(profile, profile.user.birthDate, { hasPrivateAccess, viewerId }), reputation, testimonials },
+    });
   } catch (err) {
     next(err);
   }

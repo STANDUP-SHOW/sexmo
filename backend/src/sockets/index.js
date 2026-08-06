@@ -1,5 +1,6 @@
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../config/prisma');
+const { addSocket, removeSocket } = require('../state/onlinePresence');
 
 function initSockets(io) {
   io.use(async (socket, next) => {
@@ -19,6 +20,8 @@ function initSockets(io) {
   io.on('connection', (socket) => {
     const profileId = socket.user.profile.id;
     socket.join(`profile:${profileId}`);
+    addSocket(profileId, socket.id);
+    socket.on('disconnect', () => removeSocket(profileId, socket.id));
 
     socket.on('conversation:join', (conversationId) => {
       socket.join(`conversation:${conversationId}`);

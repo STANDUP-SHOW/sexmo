@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../../../lib/AuthContext';
 import { apiFetch, mediaUrl } from '../../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../../lib/enums';
@@ -48,6 +49,26 @@ export default function ProfileDetailPage() {
     setNotice(res.matched ? "C'est un match ! Rendez-vous dans vos messages." : 'Profil aimé.');
   };
 
+  // "Contacter" tente d'aller droit à la conversation : le like est
+  // idempotent (voir /api/likes) donc rappelable sans risque si un match
+  // existe déjà — on est redirigé directement si c'est le cas.
+  const contact = async () => {
+    const res = await apiFetch(`/api/likes/${profile.id}`, { method: 'POST' });
+    if (res.matched) {
+      router.push(`/messages/${res.conversationId}`);
+    } else {
+      setNotice("Profil aimé — vous pourrez discuter dès que la personne vous aimera aussi.");
+    }
+  };
+
+  const togglePhotoLike = async (photoId) => {
+    const res = await apiFetch(`/api/photos/${photoId}/like`, { method: 'POST' });
+    setProfile((p) => ({
+      ...p,
+      photos: p.photos.map((ph) => (ph.id === photoId ? { ...ph, likedByMe: res.liked, likeCount: res.count } : ph)),
+    }));
+  };
+
   const block = async () => {
     await apiFetch(`/api/reports/block/${profile.id}`, { method: 'POST' });
     setNotice('Profil bloqué.');
@@ -69,12 +90,20 @@ export default function ProfileDetailPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="grid sm:grid-cols-2 gap-2">
-        {profile.photos.length > 0 ? profile.photos.map((p) => (
-          <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-neutral-200">
-            <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
-          </div>
-        )) : <p className="text-neutral-500">Pas de photo publique pour ce profil.</p>}
+      <div>
+        {profile.photos.length > 0 && <h2 className="text-sm font-semibold text-neutral-700 mb-2">Galerie publique</h2>}
+        <div className="grid sm:grid-cols-2 gap-2">
+          {profile.photos.length > 0 ? profile.photos.map((p) => (
+            <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden bg-neutral-200">
+              <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
+              <button onClick={() => togglePhotoLike(p.id)}
+                className="absolute bottom-2 right-2 flex items-center gap-1 text-xs bg-black/60 rounded-full pl-2 pr-2.5 py-1">
+                <span className={p.likedByMe ? 'text-brand-500' : 'text-white'}>{p.likedByMe ? '♥' : '♡'}</span>
+                <span className="text-white">{p.likeCount || 0}</span>
+              </button>
+            </div>
+          )) : <p className="text-neutral-500">Pas de photo publique pour ce profil.</p>}
+        </div>
       </div>
 
       {profile.videos?.length > 0 && (
@@ -133,13 +162,30 @@ export default function ProfileDetailPage() {
         )}
       </div>
 
-      <div className="flex gap-3">
-        <button className="btn-primary" onClick={like}>J'aime</button>
+      <div className="flex flex-wrap gap-3 items-center">
+        <button onClick={like} title={profile.online ? 'En ligne' : 'Hors ligne'}
+          className={`flex items-center gap-1.5 text-sm font-medium rounded-full px-4 py-2 text-white ${profile.online ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
+          <span>{profile.online ? '❤️' : '💔'}</span> J'aime
+        </button>
         <button className="btn-secondary" onClick={() => setShowReport(true)}>Signaler</button>
         <button className="btn-secondary" onClick={block}>Bloquer</button>
+        <Link href="/tchat" className="btn-secondary">Tchatter</Link>
+        <button className="btn-primary" onClick={contact}>Contacter</button>
       </div>
 
       {notice && <p className="text-sm text-green-600">{notice}</p>}
+
+      {profile.testimonials?.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-neutral-700">Avis publiés par {profile.pseudo}</h2>
+          {profile.testimonials.map((t) => (
+            <div key={t.id} className="card">
+              <div className="text-yellow-400 text-sm">{'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)}</div>
+              <p className="text-sm text-neutral-800 mt-1">{t.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showReport && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center px-4 z-50">
@@ -166,7 +212,7 @@ function PrivatePhotosSection({ profile, accessStatus, onRequest }) {
     if (!profile.privatePhotos?.length) return null;
     return (
       <div>
-        <p className="text-xs text-neutral-500 mb-2">🔓 Photos privées</p>
+        <h2 className="text-sm font-semibold text-neutral-700 mb-2">🔓 Galerie privée</h2>
         <div className="grid sm:grid-cols-2 gap-2">
           {profile.privatePhotos.map((p) => (
             <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-neutral-200">
@@ -182,8 +228,11 @@ function PrivatePhotosSection({ profile, accessStatus, onRequest }) {
 
   return (
     <div className="card flex items-center justify-between">
-      <span className="text-sm text-neutral-400">
-        🔒 {profile.privatePhotoCount} photo{profile.privatePhotoCount > 1 ? 's' : ''} privée{profile.privatePhotoCount > 1 ? 's' : ''}
+      <span className="text-sm text-neutral-700">
+        🔒 Découvrez ma galerie privée : demandez l'accès
+        <span className="block text-xs text-neutral-400 mt-0.5">
+          {profile.privatePhotoCount} photo{profile.privatePhotoCount > 1 ? 's' : ''} privée{profile.privatePhotoCount > 1 ? 's' : ''}
+        </span>
       </span>
       {accessStatus === 'PENDING' ? (
         <span className="text-xs text-neutral-500">Demande envoyée</span>

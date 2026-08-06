@@ -183,6 +183,7 @@ model Profile {
 
   photos                Photo[]
   videos                Video[]
+  photoLikes            PhotoLike[]
   likesGiven            Like[]             @relation("LikesGiven")
   likesReceived         Like[]             @relation("LikesReceived")
   matchesAsA            Match[]            @relation("MatchProfileA")
@@ -209,7 +210,24 @@ model Photo {
   publishedToGallery Boolean             @default(false)
   createdAt        DateTime              @default(now())
 
+  likes PhotoLike[]
+
   @@map("photos")
+}
+
+// "J'aime" façon Facebook sur une photo de profil (un like par membre et par
+// photo). Réservé aux membres identifiés (voir requireProfile) — pas de
+// like anonyme depuis le parcours sans compte.
+model PhotoLike {
+  id        String   @id @default(cuid())
+  photoId   String
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([photoId, profileId])
+  @@map("photo_likes")
 }
 
 model Video {

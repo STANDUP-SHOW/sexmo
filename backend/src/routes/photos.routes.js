@@ -111,6 +111,31 @@ router.post('/batch', requireAuth, requireProfile, upload.array('photos', 25), a
   }
 });
 
+// "J'aime" façon Facebook sur une photo de profil : un like par membre et
+// par photo, on retire si déjà posé (toggle). Uniquement sur les photos
+// publiques approuvées — pas de like sur une photo privée ou en attente.
+router.post('/:id/like', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
+    if (!photo || photo.isPrivate || photo.moderationStatus !== 'APPROVED') {
+      return res.status(404).json({ error: 'Photo introuvable' });
+    }
+    const myId = req.user.profile.id;
+    const existing = await prisma.photoLike.findUnique({
+      where: { photoId_profileId: { photoId: photo.id, profileId: myId } },
+    });
+    if (existing) {
+      await prisma.photoLike.delete({ where: { id: existing.id } });
+    } else {
+      await prisma.photoLike.create({ data: { photoId: photo.id, profileId: myId } });
+    }
+    const count = await prisma.photoLike.count({ where: { photoId: photo.id } });
+    res.json({ liked: !existing, count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch('/:id/gallery', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const photo = await prisma.photo.findUnique({ where: { id: req.params.id } });
