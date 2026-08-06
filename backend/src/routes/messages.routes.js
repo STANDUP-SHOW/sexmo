@@ -2,7 +2,8 @@ const express = require('express');
 const { z } = require('zod');
 const prisma = require('../config/prisma');
 const { requireAuth, requireProfile } = require('../middleware/auth');
-const { approximateDistanceKm } = require('../utils/geo');
+const { approximateDistanceKm, departmentForCity } = require('../utils/geo');
+const { isOnline } = require('../state/onlinePresence');
 
 const router = express.Router();
 
@@ -54,6 +55,8 @@ router.get('/conversations', requireAuth, requireProfile, async (req, res, next)
             pseudo: other.pseudo,
             city: other.city,
             photo: other.photos.find((p) => p.moderationStatus === 'APPROVED')?.url || null,
+            online: isOnline(other.id),
+            department: departmentForCity(other.city),
           },
           // Distance approximative ville à ville (arrondie à 5 km), visible
           // uniquement ici entre deux profils déjà matchés — jamais publique,

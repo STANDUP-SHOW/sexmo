@@ -1,6 +1,8 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { requireAuth, requireProfile } = require('../middleware/auth');
+const { isOnline } = require('../state/onlinePresence');
+const { departmentForCity } = require('../utils/geo');
 
 const router = express.Router();
 
@@ -80,6 +82,40 @@ router.get('/received', requireAuth, requireProfile, async (req, res, next) => {
         pseudo: l.fromProfile.pseudo,
         city: l.fromProfile.city,
         photo: l.fromProfile.photos.find((p) => p.moderationStatus === 'APPROVED')?.url || null,
+        online: isOnline(l.fromProfile.id),
+        department: departmentForCity(l.fromProfile.city),
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Profils ayant aimé au moins une de mes photos (distinct des likes de
+// profil ci-dessus) — même exclusion des profils déjà matchés.
+router.get('/photo-likers', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const myId = req.user.profile.id;
+
+    const matches = await prisma.match.findMany({
+      where: { OR: [{ profileAId: myId }, { profileBId: myId }] },
+    });
+    const matchedIds = new Set(matches.map((m) => (m.profileAId === myId ? m.profileBId : m.profileAId)));
+
+    const photoLikes = await prisma.photoLike.findMany({
+      where: { photo: { profileId: myId }, profileId: { notIn: [...matchedIds] } },
+      distinct: ['profileId'],
+      include: { profile: { include: { photos: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({
+      profiles: photoLikes.map((l) => ({
+        id: l.profile.id,
+        pseudo: l.profile.pseudo,
+        city: l.profile.city,
+        photo: l.profile.photos.find((p) => p.moderationStatus === 'APPROVED')?.url || null,
+        online: isOnline(l.profile.id),
+        department: departmentForCity(l.profile.city),
       })),
     });
   } catch (err) {
