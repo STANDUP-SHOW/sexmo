@@ -130,6 +130,13 @@ export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusC
             <div className="w-48">
               <CityAutocomplete value={city} onChange={onCityChange} placeholder="Chercher une ville..." />
             </div>
+            {city ? (
+              <button type="button" onClick={() => onCityChange('')} className="text-xs text-neutral-500 hover:text-brand-600 underline">
+                ✕ Toute la France (ne pas filtrer par ville)
+              </button>
+            ) : (
+              <span className="text-xs text-neutral-500">Toute la France : aucun filtre de ville appliqué.</span>
+            )}
             {notFound && <span className="text-xs text-neutral-400">Ville non reconnue</span>}
           </div>
         )}
