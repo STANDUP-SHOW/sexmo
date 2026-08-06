@@ -29,6 +29,7 @@ export default function ProfileDetailPage() {
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState('FAUX_PROFIL');
   const [reportDetails, setReportDetails] = useState('');
+  const [chatPresence, setChatPresence] = useState(null); // { inChat, department } | null tant que pas encore su
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -38,6 +39,11 @@ export default function ProfileDetailPage() {
     if (!user) return;
     apiFetch(`/api/profiles/${id}`).then((d) => setProfile(d.profile)).catch((e) => setError(e.message));
     apiFetch(`/api/photo-access/status/${id}`).then((d) => setAccessStatus(d.status)).catch(() => {});
+    // Être "en ligne" sur le site ne veut pas dire être connecté au tchat —
+    // on vérifie donc séparément où (si quelque part) cette personne s'y
+    // trouve réellement, pour que "Tchatter" ouvre le bon salon plutôt que
+    // de deviner un département depuis sa ville.
+    apiFetch(`/api/chat/presence/${id}`).then(setChatPresence).catch(() => setChatPresence({ inChat: false, department: null }));
   }, [id, user]);
 
   if (!user) return null;
@@ -155,9 +161,16 @@ export default function ProfileDetailPage() {
         </button>
         <button className="btn-secondary" onClick={() => setShowReport(true)}>Signaler</button>
         <button className="btn-secondary" onClick={block}>Bloquer</button>
-        <Link href={profile.department ? `/tchat?department=${profile.department}&target=${profile.id}` : '/tchat'} className="btn-secondary">
-          Tchatter
-        </Link>
+        {chatPresence?.inChat ? (
+          <Link href={`/tchat?department=${chatPresence.department}&target=${profile.id}`} className="btn-secondary">
+            Tchatter
+          </Link>
+        ) : (
+          <button type="button" disabled title="Cette personne n'est pas dans le tchat en ce moment"
+            className="btn-secondary opacity-50 cursor-not-allowed">
+            Tchatter
+          </button>
+        )}
         <button className="btn-primary" onClick={contact}>Contacter</button>
       </div>
 

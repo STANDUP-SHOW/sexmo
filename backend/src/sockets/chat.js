@@ -19,6 +19,7 @@
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../config/prisma');
 const DEPARTMENTS = require('../data/departments');
+const { setProfileDepartment, removeProfileDepartment } = require('../state/chatPresence');
 
 const DEPARTMENT_CODES = new Set(DEPARTMENTS.map((d) => d.code));
 const MAX_MESSAGE_LENGTH = 500;
@@ -160,6 +161,7 @@ function initChatSockets(io) {
       if (roomUsers.get(currentDept)?.size === 0) roomUsers.delete(currentDept);
       chat.to(`chat:${currentDept}`).emit('chat:users', usersSnapshot(currentDept));
       chat.emit('chat:counts', countsSnapshot());
+      if (socket.identity?.type === 'member') removeProfileDepartment(socket.identity.profileId);
       currentDept = null;
     };
 
@@ -168,6 +170,7 @@ function initChatSockets(io) {
       leaveCurrentRoom();
       currentDept = department;
       socket.join(`chat:${department}`);
+      if (socket.identity.type === 'member') setProfileDepartment(socket.identity.profileId, department);
       if (!roomUsers.has(department)) roomUsers.set(department, new Map());
       roomUsers.get(department).set(socket.id, {
         pseudo: socket.identity.pseudo,

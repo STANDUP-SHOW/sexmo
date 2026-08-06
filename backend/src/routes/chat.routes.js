@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const DEPARTMENTS = require('../data/departments');
 const mediaStorage = require('../services/mediaStorage');
+const { getProfileDepartment } = require('../state/chatPresence');
 
 const router = express.Router();
 
@@ -15,6 +16,15 @@ const DEPARTMENT_CODES = new Set(DEPARTMENTS.map((d) => d.code));
 
 router.get('/departments', (req, res) => {
   res.json({ departments: DEPARTMENTS });
+});
+
+// Où se trouve ce membre dans le tchat en ce moment (s'il y est) — être "en
+// ligne" sur le site ne veut pas dire être connecté au tchat, voir
+// state/chatPresence.js. Sert à n'activer le bouton "Tchatter" d'une fiche
+// profil que quand ça peut vraiment aboutir à une discussion privée.
+router.get('/presence/:profileId', (req, res) => {
+  const department = getProfileDepartment(req.params.profileId);
+  res.json({ inChat: Boolean(department), department });
 });
 
 // Envoi de photo dans une discussion privée uniquement (jamais dans un salon
