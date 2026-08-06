@@ -12,8 +12,10 @@
 //
 // Discussions privées ("bulles") : cliquer sur un connecté du salon ouvre
 // un fil à deux, en mémoire uniquement (pas d'historique) — jusqu'à 25 par
-// personne, fermé automatiquement si le destinataire ne répond pas dans la
-// minute qui suit l'ouverture.
+// personne. Celui qui invite a directement sa fenêtre ouverte pour écrire ;
+// l'autre n'est jamais forcé à rejoindre (rien de visible pour les tiers
+// tant qu'il n'a pas répondu) — si aucune réponse dans les 5 minutes qui
+// suivent l'ouverture, le fil se ferme automatiquement des deux côtés.
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../config/prisma');
 const DEPARTMENTS = require('../data/departments');
@@ -22,7 +24,7 @@ const DEPARTMENT_CODES = new Set(DEPARTMENTS.map((d) => d.code));
 const MAX_MESSAGE_LENGTH = 500;
 const GENDER_BUCKETS = ['HOMME', 'FEMME', 'TRANS', 'AUTRE'];
 const MAX_PRIVATE_THREADS = 25;
-const PRIVATE_REPLY_TIMEOUT_MS = 60 * 1000;
+const PRIVATE_REPLY_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Réduit le genre détaillé d'un profil aux 4 catégories d'affichage du
 // tchat (couleur bleu/rose/jaune/gris) — couples et non-binaire tombent

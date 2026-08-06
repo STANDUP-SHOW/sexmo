@@ -84,12 +84,14 @@ function TchatPageInner() {
       const wasSelfInitiated = pendingSelfOpenRef.current.has(threadId);
       pendingSelfOpenRef.current.delete(threadId);
       setThreads((t) => (t.some((x) => x.threadId === threadId) ? t : [...t, { threadId, peer, messages: [], unread: false }]));
-      // Ouvre directement la fenêtre de discussion, pour soi comme pour la
-      // personne invitée — qui voit en plus un message d'invitation explicite.
-      setActiveThreadId(threadId);
-      if (!wasSelfInitiated) {
-        setInviteNotice(`${peer.pseudo} vous invite à tchatter, rejoindre ?`);
-        setTimeout(() => setInviteNotice(null), 6000);
+      if (wasSelfInitiated) {
+        // Celui qui invite a directement sa fenêtre ouverte, prête à écrire.
+        setActiveThreadId(threadId);
+      } else {
+        // L'autre n'est jamais forcé à rejoindre : juste prévenu, libre de
+        // cliquer pour ouvrir la fenêtre (ou de l'ignorer — le fil se ferme
+        // tout seul après 5 min sans réponse).
+        setInviteNotice({ threadId, text: `${peer.pseudo} vous invite à tchatter, rejoindre ?` });
       }
     };
     const onPrivateMessage = (msg) => {
@@ -275,10 +277,15 @@ function TchatPageInner() {
         {limitNotice && (
           <p className="text-xs text-red-600 py-1 cursor-pointer" onClick={() => setLimitNotice('')}>{limitNotice} (fermer)</p>
         )}
-        {inviteNotice && (
-          <p className="text-xs bg-brand-50 text-brand-700 border border-brand-200 rounded-lg px-3 py-2 my-1 cursor-pointer"
-            onClick={() => setInviteNotice(null)}>
-            {inviteNotice}
+        {inviteNotice && threads.some((t) => t.threadId === inviteNotice.threadId) && (
+          <p className="text-xs bg-brand-50 text-brand-700 border border-brand-200 rounded-lg px-3 py-2 my-1 flex items-center justify-between gap-2">
+            <span>{inviteNotice.text}</span>
+            <span className="flex items-center gap-2 shrink-0">
+              <button className="underline hover:no-underline" onClick={() => { switchTab(inviteNotice.threadId); setInviteNotice(null); }}>
+                Rejoindre
+              </button>
+              <span className="cursor-pointer" onClick={() => setInviteNotice(null)}>✕</span>
+            </span>
           </p>
         )}
 
