@@ -8,6 +8,8 @@ import { getChatSocket, identifyAsGuest, disconnectChatSocket } from '../../lib/
 import { EXPERIENCE_LEVEL_EMOJI } from '../../lib/enums';
 import AgeGate from '../../components/AgeGate';
 import LogoMark from '../../components/LogoMark';
+import MapSearchBlock from '../../components/MapSearchBlock';
+import { useSearchLocation } from '../../lib/useSearchLocation';
 
 const GENDER_LABELS = { HOMME: 'Homme', FEMME: 'Femme', TRANS: 'Trans', AUTRE: 'Non-genré' };
 const GENDER_TEXT_COLORS = { HOMME: 'text-blue-600', FEMME: 'text-pink-600', TRANS: 'text-yellow-600', AUTRE: 'text-neutral-600' };
@@ -33,6 +35,8 @@ function TchatPageInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const targetProfileId = searchParams.get('target');
+  const { city, radiusKm, setCity, setRadiusKm } = useSearchLocation();
+  const [recommendedDept, setRecommendedDept] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [counts, setCounts] = useState({});
   const [department, setDepartment] = useState(searchParams.get('department') || null);
@@ -217,22 +221,56 @@ function TchatPageInner() {
   }
 
   if (!department) {
+    const recommendedName = departments.find((d) => d.code === recommendedDept)?.name;
     return (
       <div className="max-w-2xl mx-auto">
         <AgeGate />
         <h1 className="text-2xl font-bold mb-1">Sexmo Tchat</h1>
         <p className="text-sm text-neutral-500 mb-6">Choisissez votre département pour rejoindre le salon d'échange.</p>
+
+        <div className="mb-4">
+          <MapSearchBlock city={city} radiusKm={radiusKm} onCityChange={setCity} onRadiusChange={setRadiusKm}
+            onResolved={(d) => setRecommendedDept(d.department)} />
+        </div>
+
+        {recommendedDept && (
+          <div className="bg-brand-500 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-white font-bold">
+                Nous vous conseillons le tchat du {recommendedDept} : {counts[recommendedDept] || 0} connecté(s) dans votre département
+              </p>
+              {recommendedName && <p className="text-white/80 text-xs">Salon conseillé · {recommendedName}</p>}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="bg-white/20 text-white text-sm font-semibold rounded-full px-3 py-1.5 flex items-center gap-1">
+                👥 {counts[recommendedDept] || 0}
+              </span>
+              <button onClick={() => setDepartment(recommendedDept)}
+                className="bg-black text-brand-500 text-sm font-semibold rounded-full px-4 py-1.5 hover:opacity-90">
+                Go
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p className="text-sm text-neutral-500 mb-2">Ou choisissez un autre département :</p>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {departments.map((d) => (
-            <button key={d.code} onClick={() => setDepartment(d.code)}
-              className="card text-center py-3 hover:border-brand-500 transition relative">
-              <p className="font-bold">{d.code}</p>
-              <p className="text-xs text-neutral-500 truncate">{d.name}</p>
-              <p className={`text-[10px] mt-1 ${counts[d.code] > 0 ? 'text-green-700 font-medium' : 'text-neutral-400'}`}>
-                {counts[d.code] > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 align-middle" />}
+            <div key={d.code} onClick={() => setDepartment(d.code)}
+              className="bg-brand-500 rounded-xl p-3 text-center flex flex-col items-center gap-1 cursor-pointer hover:opacity-90 transition">
+              <span className="w-8 h-8 rounded-full bg-white text-brand-500 font-bold text-xs flex items-center justify-center">
+                {d.code}
+              </span>
+              <p className="text-white font-bold text-xs truncate w-full">{d.name}</p>
+              <p className="text-white text-[10px] flex items-center justify-center gap-1">
+                {counts[d.code] > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-white" />}
                 {counts[d.code] || 0} connecté(s)
               </p>
-            </button>
+              <button onClick={(e) => { e.stopPropagation(); setDepartment(d.code); }}
+                className="mt-1 bg-black text-brand-500 text-[10px] font-semibold rounded-full px-3 py-1 w-full">
+                Rejoindre
+              </button>
+            </div>
           ))}
         </div>
       </div>

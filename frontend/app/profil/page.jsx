@@ -8,8 +8,9 @@ import { apiFetch, mediaUrl } from '../../lib/api';
 import { getCroppedImageBlob } from '../../lib/cropImage';
 import PhotoCropModal from '../../components/PhotoCropModal';
 import CityAutocomplete from '../../components/CityAutocomplete';
+import MapSearchBlock from '../../components/MapSearchBlock';
 import { PRACTICE_CATEGORIES } from '../../lib/practices';
-import { GENDER_LABELS, ORIENTATION_LABELS, SEX_ROLE_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
+import { ORIENTATION_LABELS, SEX_ROLE_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 
 const MAX_PUBLIC_PHOTOS = 5;
 const MAX_PRIVATE_PHOTOS = 20;
@@ -349,15 +350,10 @@ export default function ProfilePage() {
             <p className="text-xs text-neutral-500">Sinon, l'annonce reste classée dans la ville indiquée ci-dessus.</p>
           )}
           {locateError && <p className="text-xs text-red-600">{locateError}</p>}
-          {useGeolocation && (
-            <div>
-              <label className="text-xs text-neutral-500">Étendre la visibilité à {radiusKm} km autour de {city}</label>
-              <input type="range" min={0} max={200} step={10} value={radiusKm}
-                onChange={(e) => setRadiusKm(Number(e.target.value))}
-                onMouseUp={(e) => saveRadius(Number(e.target.value))}
-                onTouchEnd={(e) => saveRadius(Number(e.target.value))}
-                className="w-full" />
-            </div>
+          {useGeolocation && city && (
+            <MapSearchBlock city={city} radiusKm={radiusKm} hideCityInput
+              onCityChange={() => {}}
+              onRadiusChange={(km) => { setRadiusKm(km); saveRadius(km); }} />
           )}
         </div>
 

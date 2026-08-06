@@ -9,7 +9,7 @@ import CityAutocomplete from './CityAutocomplete';
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const FRANCE_CENTER = { lat: 46.6, lng: 2.4 };
 const FRANCE_ZOOM = 5.3;
-const MAX_RADIUS_KM = 50;
+const MAX_RADIUS_KM = 100;
 
 // Pastille rose façon marqueur, en SVG inline (évite de dépendre d'une image
 // hébergée en plus de l'icône du site).
@@ -27,14 +27,15 @@ function zoomForRadius(radiusKm) {
   if (radiusKm <= 5) return 12;
   if (radiusKm <= 15) return 10.5;
   if (radiusKm <= 30) return 9.3;
-  return 8.5;
+  if (radiusKm <= 60) return 8.5;
+  return 7.6;
 }
 
 // Bloc carte plein largeur : France par défaut, zoom sur la ville tapée avec
 // une pastille rose + un cercle représentant le rayon de recherche (curseur
 // 0-50 km, 50 par défaut), et une vignette avec le nombre de membres dans la
 // zone. Pilote city/radiusKm côté page appelante (filtres de recherche).
-export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusChange, onResolved }) {
+export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusChange, onResolved, hideCityInput = false }) {
   const { isLoaded } = useJsApiLoader({
     id: 'sexmo-google-maps',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY || '',
@@ -124,12 +125,14 @@ export default function MapSearchBlock({ city, radiusKm, onCityChange, onRadiusC
       </div>
 
       <div className="p-3 space-y-2">
-        <div className="flex gap-3 items-center flex-wrap">
-          <div className="w-48">
-            <CityAutocomplete value={city} onChange={onCityChange} placeholder="Chercher une ville..." />
+        {!hideCityInput && (
+          <div className="flex gap-3 items-center flex-wrap">
+            <div className="w-48">
+              <CityAutocomplete value={city} onChange={onCityChange} placeholder="Chercher une ville..." />
+            </div>
+            {notFound && <span className="text-xs text-neutral-400">Ville non reconnue</span>}
           </div>
-          {notFound && <span className="text-xs text-neutral-400">Ville non reconnue</span>}
-        </div>
+        )}
         {city && (
           <div>
             <label className="text-xs text-neutral-500">
