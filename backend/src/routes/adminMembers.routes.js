@@ -21,6 +21,10 @@ router.use(requireAuth, requireAdmin);
 const GENDERS = ['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', 'COUPLE_FEMME_FEMME', 'TRANS', 'NON_BINAIRE', 'AUTRE'];
 const ORIENTATIONS = ['HETERO', 'HOMO', 'BI', 'CURIEUX', 'PANSEXUEL', 'AUTRE'];
 const SEX_ROLES = ['ACTIF', 'PASSIF', 'VERSA'];
+const BODY_TYPES = ['ATHLETIQUE', 'SVELTE', 'MOYENNE', 'ENROBEE', 'RONDE'];
+const EYE_COLORS = ['MARRON', 'BLEU', 'VERT', 'GRIS', 'NOISETTE'];
+const AD_CATEGORIES = ['EPHEMERE', 'ECHANGISME', 'PLURALISME', 'VOYEURISME', 'GROUPE'];
+const EXPERIENCE_LEVELS = ['DEBUTANT', 'AMATEUR', 'EXPERIMENTE', 'EXPERT'];
 
 // --- Liste / recherche ---
 
@@ -393,18 +397,30 @@ router.post('/:id/videos/batch', videoUpload.array('videos', MAX_VIDEOS_PER_PROF
 // --- Import en masse (Excel .xlsx, CSV, ou TXT délimité par virgule/tabulation) ---
 //
 // Colonnes attendues (première ligne = en-têtes, dans n'importe quel ordre) :
-//   email        (obligatoire, unique)
-//   password     (obligatoire, 8 caractères min.)
-//   pseudo       (obligatoire, 2-30 caractères)
-//   birthDate    (obligatoire, AAAA-MM-JJ, le membre doit avoir 18 ans ou plus)
-//   gender       (obligatoire, une valeur parmi : HOMME, FEMME, COUPLE_HOMME_FEMME,
-//                 COUPLE_HOMME_HOMME, COUPLE_FEMME_FEMME, TRANS, NON_BINAIRE, AUTRE)
-//   orientation  (obligatoire, une valeur parmi : HETERO, HOMO, BI, CURIEUX, AUTRE)
-//   seeking      (obligatoire, une ou plusieurs valeurs de la liste "gender"
-//                 séparées par un point-virgule, ex. "HOMME;COUPLE_HOMME_FEMME")
-//   city         (obligatoire)
-//   bio          (optionnel)
-//   photoPrefix  (optionnel — voir import groupé des photos ci-dessous)
+//   email           (obligatoire, unique)
+//   password        (obligatoire, 8 caractères min.)
+//   pseudo          (obligatoire, 2-30 caractères)
+//   birthDate       (obligatoire, AAAA-MM-JJ, le membre doit avoir 18 ans ou plus)
+//   gender          (obligatoire, une valeur parmi : HOMME, FEMME, COUPLE_HOMME_FEMME,
+//                    COUPLE_HOMME_HOMME, COUPLE_FEMME_FEMME, TRANS, NON_BINAIRE, AUTRE)
+//   orientation     (obligatoire, une valeur parmi : HETERO, HOMO, BI, CURIEUX, PANSEXUEL, AUTRE)
+//   seeking         (obligatoire, une ou plusieurs valeurs de la liste "gender"
+//                    séparées par un point-virgule, ex. "HOMME;COUPLE_HOMME_FEMME")
+//   city            (obligatoire)
+//   bio             (optionnel)
+//   sexRole         (optionnel : ACTIF, PASSIF ou VERSA)
+//   available       (optionnel : true/false — "disponible pour discuter maintenant")
+//   bodyType        (optionnel : ATHLETIQUE, SVELTE, MOYENNE, ENROBEE, RONDE)
+//   eyeColor        (optionnel : MARRON, BLEU, VERT, GRIS, NOISETTE)
+//   adCategory      (optionnel : EPHEMERE, ECHANGISME, PLURALISME, VOYEURISME, GROUPE)
+//   experienceLevel (optionnel : DEBUTANT, AMATEUR, EXPERIMENTE, EXPERT)
+//   heightCm        (optionnel : nombre entier, 100-250)
+//   weightKg        (optionnel : nombre entier, 30-250)
+//   interests       (optionnel : centres d'intérêt libres séparés par des virgules)
+//   practices       (optionnel : une ou plusieurs pratiques séparées par un point-virgule,
+//                    voir src/constants/practices.js pour la liste des clés valides,
+//                    ex. "ECHANGE_SOFT;TRIOLISME;LINGERIE")
+//   photoPrefix     (optionnel — voir import groupé des photos ci-dessous)
 //
 // Import groupé des photos : en plus du fichier de données, l'admin peut
 // joindre un lot de fichiers photo (jusqu'à 5 par membre, le reste est
@@ -414,10 +430,18 @@ router.post('/:id/videos/batch', videoUpload.array('videos', MAX_VIDEOS_PER_PROF
 // caractère qui n'est pas une lettre/chiffre (ex. "Jeanne D." et
 // "jeanne_d-photo1.jpg" correspondent).
 const REQUIRED_IMPORT_COLUMNS = ['email', 'password', 'pseudo', 'birthDate', 'gender', 'orientation', 'seeking', 'city'];
+const OPTIONAL_IMPORT_COLUMNS = [
+  'bio', 'sexRole', 'available', 'bodyType', 'eyeColor', 'adCategory', 'experienceLevel',
+  'heightCm', 'weightKg', 'interests', 'practices', 'photoPrefix',
+];
 
 router.get('/import/template', (req, res) => {
-  const header = [...REQUIRED_IMPORT_COLUMNS, 'bio', 'photoPrefix'];
-  const example = ['jeanne.d@example.com', 'MotDePasse8', 'JeanneD', '1990-05-14', 'FEMME', 'BI', 'HOMME;COUPLE_HOMME_FEMME', 'Lyon', 'Curieuse et ouverte d\'esprit.', 'jeanne_d'];
+  const header = [...REQUIRED_IMPORT_COLUMNS, ...OPTIONAL_IMPORT_COLUMNS];
+  const example = [
+    'jeanne.d@example.com', 'MotDePasse8', 'JeanneD', '1990-05-14', 'FEMME', 'BI', 'HOMME;COUPLE_HOMME_FEMME', 'Lyon',
+    'Curieuse et ouverte d\'esprit.', 'VERSA', 'true', 'SVELTE', 'VERT', 'ECHANGISME', 'AMATEUR', '168', '60',
+    'cinéma, voyages', 'ECHANGE_SOFT;TRIOLISME;LINGERIE', 'jeanne_d',
+  ];
   const csv = [header.join(','), example.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="modele-import-membres.csv"');
@@ -444,6 +468,29 @@ const importUpload = multer({
   },
 });
 
+// Colonne optionnelle vide -> undefined (le schéma ne doit pas la refuser),
+// sinon on valide contre l'enum indiqué.
+function optionalEnumColumn(values) {
+  return z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z.enum(values, { errorMap: () => ({ message: `valeur invalide (attendu : ${values.join(', ')})` }) }).optional()
+  );
+}
+
+function optionalIntColumn(min, max) {
+  return z.preprocess(
+    (v) => (v === '' || v == null ? undefined : Number(v)),
+    z.number().int().min(min).max(max).optional()
+  );
+}
+
+function optionalBoolColumn() {
+  return z.preprocess(
+    (v) => (v === '' || v == null ? undefined : ['true', '1', 'oui', 'vrai'].includes(String(v).trim().toLowerCase())),
+    z.boolean().optional()
+  );
+}
+
 const importRowSchema = z.object({
   email: z.string().trim().email('e-mail invalide'),
   password: z.string().min(8, 'mot de passe : 8 caractères minimum'),
@@ -453,6 +500,16 @@ const importRowSchema = z.object({
   orientation: z.enum(ORIENTATIONS, { errorMap: () => ({ message: `orientation invalide (attendu : ${ORIENTATIONS.join(', ')})` }) }),
   city: z.string().trim().min(1),
   bio: z.string().trim().max(1000).optional(),
+  sexRole: optionalEnumColumn(SEX_ROLES),
+  available: optionalBoolColumn(),
+  bodyType: optionalEnumColumn(BODY_TYPES),
+  eyeColor: optionalEnumColumn(EYE_COLORS),
+  adCategory: optionalEnumColumn(AD_CATEGORIES),
+  experienceLevel: optionalEnumColumn(EXPERIENCE_LEVELS),
+  heightCm: optionalIntColumn(100, 250),
+  weightKg: optionalIntColumn(30, 250),
+  interests: z.string().trim().optional(),
+  practices: z.string().trim().optional(),
   photoPrefix: z.string().trim().optional(),
 });
 
@@ -502,7 +559,14 @@ router.post('/import', importUpload.fields([{ name: 'file', maxCount: 1 }, { nam
           if (!GENDERS.includes(g)) throw new Error(`seeking invalide : "${g}" (attendu : ${GENDERS.join(', ')})`);
         }
 
+        const practicesRaw = String(raw.practices || '').trim();
+        const practices = practicesRaw ? practicesRaw.split(';').map((s) => s.trim()).filter(Boolean) : [];
+        for (const p of practices) {
+          if (!ALL_PRACTICE_KEYS.includes(p)) throw new Error(`pratique invalide : "${p}"`);
+        }
+
         const data = importRowSchema.parse({ ...raw, seeking });
+        const interests = data.interests ? data.interests.split(',').map((s) => s.trim()).filter(Boolean) : [];
 
         if (computeAge(data.birthDate) < MIN_AGE) {
           throw new Error(`le membre doit avoir ${MIN_AGE} ans ou plus`);
@@ -528,6 +592,16 @@ router.post('/import', importUpload.fields([{ name: 'file', maxCount: 1 }, { nam
                 seeking,
                 city: data.city,
                 bio: data.bio || '',
+                sexRole: data.sexRole || null,
+                available: data.available ?? false,
+                bodyType: data.bodyType || null,
+                eyeColor: data.eyeColor || null,
+                adCategory: data.adCategory || null,
+                experienceLevel: data.experienceLevel || null,
+                heightCm: data.heightCm ?? null,
+                weightKg: data.weightKg ?? null,
+                interests,
+                practices,
               },
             },
           },

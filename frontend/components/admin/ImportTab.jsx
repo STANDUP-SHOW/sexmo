@@ -58,10 +58,19 @@ export default function ImportTab() {
           <li><code>pseudo</code> — obligatoire</li>
           <li><code>birthDate</code> — obligatoire, format AAAA-MM-JJ, le membre doit être majeur</li>
           <li><code>gender</code> — HOMME, FEMME, COUPLE_HOMME_FEMME, COUPLE_HOMME_HOMME, COUPLE_FEMME_FEMME, TRANS, NON_BINAIRE ou AUTRE</li>
-          <li><code>orientation</code> — HETERO, HOMO, BI, CURIEUX ou AUTRE</li>
+          <li><code>orientation</code> — HETERO, HOMO, BI, CURIEUX, PANSEXUEL ou AUTRE</li>
           <li><code>seeking</code> — une ou plusieurs valeurs de la liste "gender" séparées par un point-virgule, ex. <code>HOMME;COUPLE_HOMME_FEMME</code></li>
           <li><code>city</code> — obligatoire</li>
           <li><code>bio</code> — optionnel</li>
+          <li><code>sexRole</code> — optionnel : ACTIF, PASSIF ou VERSA</li>
+          <li><code>available</code> — optionnel : true/false (disponible pour discuter maintenant)</li>
+          <li><code>bodyType</code> — optionnel : ATHLETIQUE, SVELTE, MOYENNE, ENROBEE ou RONDE</li>
+          <li><code>eyeColor</code> — optionnel : MARRON, BLEU, VERT, GRIS ou NOISETTE</li>
+          <li><code>adCategory</code> — optionnel : EPHEMERE, ECHANGISME, PLURALISME, VOYEURISME ou GROUPE</li>
+          <li><code>experienceLevel</code> — optionnel : DEBUTANT, AMATEUR, EXPERIMENTE ou EXPERT</li>
+          <li><code>heightCm</code> / <code>weightKg</code> — optionnels, nombres entiers</li>
+          <li><code>interests</code> — optionnel, centres d'intérêt libres séparés par des virgules</li>
+          <li><code>practices</code> — optionnel, une ou plusieurs pratiques séparées par un point-virgule (voir la liste sur la page profil), ex. <code>ECHANGE_SOFT;TRIOLISME;LINGERIE</code></li>
           <li><code>photoPrefix</code> — optionnel, voir import des photos ci-dessous</li>
         </ul>
         <button className="btn-secondary text-sm" onClick={downloadTemplate}>Télécharger un modèle CSV</button>
