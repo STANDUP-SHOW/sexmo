@@ -309,7 +309,12 @@ function TchatPageInner() {
               {user?.profile ? user.profile.pseudo : `${guestPseudo} (invité·e)`} · {roomUsers.length} connecté(s)
             </p>
           </div>
-          <button className="btn-secondary text-xs" onClick={() => { setDepartment(null); setIdentified(false); setThreads([]); setActiveThreadId(null); }}>Changer</button>
+          {/* Le socket reste identifié tant qu'il reste connecté (le backend
+              ignore un chat:identify en double, voir sockets/chat.js) :
+              remettre "identified" à false ici bloquait le formulaire pseudo
+              en boucle sans jamais recevoir de réponse. On ne réinitialise
+              que le département. */}
+          <button className="btn-secondary text-xs" onClick={() => { setDepartment(null); setThreads([]); setActiveThreadId(null); }}>Changer</button>
         </div>
 
         {limitNotice && (
