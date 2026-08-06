@@ -303,6 +303,93 @@ router.post('/:id/photos/batch', upload.array('photos', 25), async (req, res, ne
   }
 });
 
+// --- Vidéos d'un membre, gérées directement par l'admin ---
+
+const MAX_VIDEOS_PER_PROFILE = 3;
+
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['video/mp4', 'video/quicktime', 'video/webm'];
+    if (!allowed.includes(file.mimetype)) return cb(new Error('Format non supporté (mp4, mov ou webm uniquement)'));
+    cb(null, true);
+  },
+});
+
+router.post('/:id/videos', videoUpload.single('video'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+    const profile = await prisma.profile.findUnique({ where: { userId: req.params.id } });
+    if (!profile) return res.status(404).json({ error: 'Ce membre n\'a pas encore de profil' });
+
+    const count = await prisma.video.count({ where: { profileId: profile.id } });
+    if (count >= MAX_VIDEOS_PER_PROFILE) {
+      return res.status(400).json({ error: `Maximum ${MAX_VIDEOS_PER_PROFILE} vidéos par profil` });
+    }
+
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.mp4';
+    const filename = `${crypto.randomUUID()}${ext}`;
+    await mediaStorage.uploadBuffer(req.file.buffer, filename);
+
+    const video = await prisma.video.create({
+      data: {
+        profileId: profile.id,
+        url: `/media/videos/${filename}`,
+        position: count,
+        // Ajoutée directement par un administrateur : approuvée d'emblée.
+        moderationStatus: 'APPROVED',
+      },
+    });
+    res.status(201).json({ video });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Import multiple / dossier entier : ne prend que ce qui reste de quota
+// (3 vidéos par profil), le reste est ignoré et signalé.
+router.post('/:id/videos/batch', videoUpload.array('videos', MAX_VIDEOS_PER_PROFILE), async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'Aucun fichier reçu' });
+    const profile = await prisma.profile.findUnique({ where: { userId: req.params.id } });
+    if (!profile) return res.status(404).json({ error: 'Ce membre n\'a pas encore de profil' });
+
+    let count = await prisma.video.count({ where: { profileId: profile.id } });
+    const created = [];
+    let skipped = 0;
+
+    for (const file of req.files) {
+      if (count >= MAX_VIDEOS_PER_PROFILE) { skipped++; continue; }
+
+      const ext = path.extname(file.originalname).toLowerCase() || '.mp4';
+      const filename = `${crypto.randomUUID()}${ext}`;
+      await mediaStorage.uploadBuffer(file.buffer, filename);
+
+      const video = await prisma.video.create({
+        data: {
+          profileId: profile.id,
+          url: `/media/videos/${filename}`,
+          position: count,
+          moderationStatus: 'APPROVED',
+        },
+      });
+      created.push(video);
+      count++;
+    }
+
+    res.status(201).json({
+      videos: created,
+      skipped,
+      notice: skipped > 0
+        ? `${created.length} vidéo(s) ajoutée(s), ${skipped} ignorée(s) (limite de ${MAX_VIDEOS_PER_PROFILE} vidéos atteinte).`
+        : `${created.length} vidéo(s) ajoutée(s).`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Import en masse (Excel .xlsx, CSV, ou TXT délimité par virgule/tabulation) ---
 //
 // Colonnes attendues (première ligne = en-têtes, dans n'importe quel ordre) :

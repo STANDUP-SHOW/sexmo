@@ -96,7 +96,7 @@ function CreateMemberModal({ onClose, onCreated }) {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Annuler</button>
-          <button className="btn-primary" disabled={saving}>{saving ? 'Création...' : 'Créer'}</button>
+          <button className="btn-primary" disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</button>
         </div>
       </form>
     </div>
@@ -110,6 +110,7 @@ function MemberDetail({ id, onBack }) {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [batchNotice, setBatchNotice] = useState('');
 
   const load = () => {
@@ -198,6 +199,28 @@ function MemberDetail({ id, onBack }) {
   const deleteVideo = async (videoId) => {
     await apiFetch(`/api/videos/${videoId}`, { method: 'DELETE' });
     load();
+  };
+
+  const uploadVideos = async (files) => {
+    if (!files || files.length === 0) return;
+    setUploadingVideo(true);
+    try {
+      if (files.length === 1) {
+        const fd = new FormData();
+        fd.append('video', files[0]);
+        await apiFetch(`/api/admin/members/${id}/videos`, { method: 'POST', body: fd });
+      } else {
+        const fd = new FormData();
+        Array.from(files).forEach((f) => fd.append('videos', f));
+        const { notice } = await apiFetch(`/api/admin/members/${id}/videos/batch`, { method: 'POST', body: fd });
+        if (notice) { setError(''); setBatchNotice(notice); setTimeout(() => setBatchNotice(''), 6000); }
+      }
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingVideo(false);
+    }
   };
 
   return (
@@ -366,7 +389,7 @@ function MemberDetail({ id, onBack }) {
       {member.profile && (
         <div className="card space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-semibold">Photos ({member.profile.photos?.length || 0})</h3>
+            <h3 className="font-semibold">Photos publiques ({(member.profile.photos || []).filter((p) => !p.isPrivate).length}/5)</h3>
             <div className="flex gap-2">
               <label className="btn-secondary text-sm cursor-pointer">
                 {uploading ? 'Envoi...' : 'Ajouter des photos'}
@@ -383,33 +406,67 @@ function MemberDetail({ id, onBack }) {
           {batchNotice && <p className="text-xs text-brand-600">{batchNotice}</p>}
           <p className="text-xs text-neutral-500">La 1ère photo publique (encadrée) sert de vignette principale sur les cartes du site.</p>
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-            {(member.profile.photos || []).map((p, i) => {
-              const isFirstPublic = !p.isPrivate && i === (member.profile.photos || []).findIndex((x) => !x.isPrivate);
-              return (
-                <div key={p.id} className={`relative aspect-square rounded-lg overflow-hidden border ${isFirstPublic ? 'border-brand-500 ring-2 ring-brand-300' : 'border-neutral-200'}`}>
-                  <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
-                  <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white rounded px-1">{p.isPrivate ? 'privée' : p.moderationStatus}</span>
-                  {!p.isPrivate && !isFirstPublic && (
-                    <button onClick={() => featurePhoto(p.id)} className="absolute top-1 right-1 text-[9px] bg-black/70 text-white rounded px-1 hover:bg-black">Mettre en avant</button>
-                  )}
-                  <button onClick={() => deletePhoto(p.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
-                </div>
-              );
-            })}
+            {(member.profile.photos || []).filter((p) => !p.isPrivate).map((p, i) => (
+              <div key={p.id} className={`relative aspect-square rounded-lg overflow-hidden border ${i === 0 ? 'border-brand-500 ring-2 ring-brand-300' : 'border-neutral-200'}`}>
+                <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
+                <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white rounded px-1">{p.moderationStatus}</span>
+                {i !== 0 && (
+                  <button onClick={() => featurePhoto(p.id)} className="absolute top-1 right-1 text-[9px] bg-black/70 text-white rounded px-1 hover:bg-black">Mettre en avant</button>
+                )}
+                <button onClick={() => deletePhoto(p.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
+              </div>
+            ))}
           </div>
 
-          {(member.profile.videos || []).length > 0 && (
-            <>
-              <h3 className="font-semibold pt-2">Vidéos ({member.profile.videos.length})</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {member.profile.videos.map((v) => (
-                  <div key={v.id} className="relative aspect-video rounded-lg overflow-hidden border border-neutral-200 bg-black">
-                    <video src={mediaUrl(v.url)} controls className="w-full h-full object-cover" />
-                    <button onClick={() => deleteVideo(v.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
-                  </div>
-                ))}
+          <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-neutral-200">
+            <h3 className="font-semibold">Photos privées ({(member.profile.photos || []).filter((p) => p.isPrivate).length}/20)</h3>
+            <div className="flex gap-2">
+              <label className="btn-secondary text-sm cursor-pointer">
+                {uploading ? 'Envoi...' : 'Ajouter des photos'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" disabled={uploading}
+                  onChange={(e) => { uploadPhotos(e.target.files, true); e.target.value = ''; }} />
+              </label>
+              <label className="btn-secondary text-sm cursor-pointer">
+                Importer un dossier
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple webkitdirectory="" directory="" className="hidden" disabled={uploading}
+                  onChange={(e) => { uploadPhotos(e.target.files, true); e.target.value = ''; }} />
+              </label>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+            {(member.profile.photos || []).filter((p) => p.isPrivate).map((p) => (
+              <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden border border-neutral-200">
+                <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
+                <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white rounded px-1">privée</span>
+                <button onClick={() => deletePhoto(p.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
               </div>
-            </>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-neutral-200">
+            <h3 className="font-semibold">Vidéos ({(member.profile.videos || []).length}/3)</h3>
+            <div className="flex gap-2">
+              <label className="btn-secondary text-sm cursor-pointer">
+                {uploadingVideo ? 'Envoi...' : 'Ajouter des vidéos'}
+                <input type="file" accept="video/mp4,video/quicktime,video/webm" multiple className="hidden" disabled={uploadingVideo}
+                  onChange={(e) => { uploadVideos(e.target.files); e.target.value = ''; }} />
+              </label>
+              <label className="btn-secondary text-sm cursor-pointer">
+                Importer un dossier
+                <input type="file" accept="video/mp4,video/quicktime,video/webm" multiple webkitdirectory="" directory="" className="hidden" disabled={uploadingVideo}
+                  onChange={(e) => { uploadVideos(e.target.files); e.target.value = ''; }} />
+              </label>
+            </div>
+          </div>
+          {(member.profile.videos || []).length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {member.profile.videos.map((v) => (
+                <div key={v.id} className="relative aspect-video rounded-lg overflow-hidden border border-neutral-200 bg-black">
+                  <video src={mediaUrl(v.url)} controls className="w-full h-full object-cover" />
+                  <button onClick={() => deleteVideo(v.id)} className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-white rounded px-1.5 py-0.5 hover:bg-black">Suppr.</button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
