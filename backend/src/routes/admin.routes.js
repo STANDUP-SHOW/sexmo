@@ -432,7 +432,11 @@ const testimonialPatchSchema = z.object({
 router.patch('/testimonials/:id', async (req, res, next) => {
   try {
     const data = testimonialPatchSchema.parse(req.body);
-    const testimonial = await prisma.testimonial.update({ where: { id: req.params.id }, data });
+    const testimonial = await prisma.testimonial.update({
+      where: { id: req.params.id },
+      data,
+      include: { authorUser: { select: { email: true, profile: { select: { pseudo: true } } } } },
+    });
     res.json({ testimonial });
   } catch (err) {
     next(err);

@@ -100,7 +100,7 @@ export default function TestimonialsTab() {
               <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[t.status]}`}>{STATUS_LABELS[t.status]}</span>
             </div>
             <p className="text-sm text-neutral-800">{t.content}</p>
-            <p className="text-xs text-neutral-500">{t.authorUser.profile?.pseudo || t.authorUser.email}</p>
+            <p className="text-xs text-neutral-500">{t.authorUser?.profile?.pseudo || t.authorUser?.email}</p>
 
             {t.adminReply != null && (
               <div className="bg-neutral-100 rounded-lg p-2 text-sm text-neutral-700">
