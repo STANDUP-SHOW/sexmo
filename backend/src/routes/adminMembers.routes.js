@@ -423,11 +423,13 @@ router.post('/:id/videos/batch', videoUpload.array('videos', MAX_VIDEOS_PER_PROF
 //   photoPrefix     (optionnel — voir import groupé des photos ci-dessous)
 //
 // Import groupé des photos : en plus du fichier de données, l'admin peut
-// joindre un lot de fichiers photo (jusqu'à 5 par membre, le reste est
-// ignoré). Chaque photo doit être nommée "<prefix>-photoN.ext" (N = 1 à 5),
+// joindre un lot de fichiers photo (jusqu'à 25 par membre, le reste est
+// ignoré). Chaque photo doit être nommée "<prefix>-photoN.ext" (N = 1 à 25),
 // où <prefix> est la colonne "photoPrefix" de la ligne si présente, sinon
-// le "pseudo". La comparaison ignore la casse, les accents et tout
-// caractère qui n'est pas une lettre/chiffre (ex. "Jeanne D." et
+// le "pseudo". Les photos 1 à 5 vont dans la galerie publique, les photos
+// 6 à 25 dans la galerie privée (mêmes quotas que le reste du site :
+// 5 publiques / 20 privées). La comparaison ignore la casse, les accents et
+// tout caractère qui n'est pas une lettre/chiffre (ex. "Jeanne D." et
 // "jeanne_d-photo1.jpg" correspondent).
 const REQUIRED_IMPORT_COLUMNS = ['email', 'password', 'pseudo', 'birthDate', 'gender', 'orientation', 'seeking', 'city'];
 const OPTIONAL_IMPORT_COLUMNS = [
@@ -610,13 +612,14 @@ router.post('/import', importUpload.fields([{ name: 'file', maxCount: 1 }, { nam
         results.created++;
 
         const prefix = normalizeForMatch(data.photoPrefix || data.pseudo);
-        const matches = parsedPhotos
-          .filter((p) => p.prefix === prefix)
-          .sort((a, b) => a.num - b.num)
-          .slice(0, MAX_PUBLIC_PHOTOS);
+        const allMatches = parsedPhotos.filter((p) => p.prefix === prefix).sort((a, b) => a.num - b.num);
+        // Numéros 1 à 5 -> galerie publique, 6 à 25 -> galerie privée (mêmes
+        // quotas que l'ajout manuel de photos sur un profil).
+        const publicMatches = allMatches.filter((p) => p.num <= MAX_PUBLIC_PHOTOS).slice(0, MAX_PUBLIC_PHOTOS);
+        const privateMatches = allMatches.filter((p) => p.num > MAX_PUBLIC_PHOTOS).slice(0, MAX_PRIVATE_PHOTOS);
 
         let position = 0;
-        for (const m of matches) {
+        for (const m of publicMatches) {
           const ext = path.extname(m.file.originalname).toLowerCase() || '.jpg';
           const filename = `${crypto.randomUUID()}${ext}`;
           await mediaStorage.uploadBuffer(m.file.buffer, filename);
@@ -625,6 +628,23 @@ router.post('/import', importUpload.fields([{ name: 'file', maxCount: 1 }, { nam
               profileId: user.profile.id,
               url: `/media/photos/${filename}`,
               isPrivate: false,
+              position: position++,
+              moderationStatus: 'APPROVED',
+            },
+          });
+          results.photosImported++;
+        }
+
+        position = 0;
+        for (const m of privateMatches) {
+          const ext = path.extname(m.file.originalname).toLowerCase() || '.jpg';
+          const filename = `${crypto.randomUUID()}${ext}`;
+          await mediaStorage.uploadBuffer(m.file.buffer, filename);
+          await prisma.photo.create({
+            data: {
+              profileId: user.profile.id,
+              url: `/media/photos/${filename}`,
+              isPrivate: true,
               position: position++,
               moderationStatus: 'APPROVED',
             },

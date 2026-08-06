@@ -77,13 +77,14 @@ export default function ImportTab() {
       </div>
 
       <div className="card space-y-3">
-        <h2 className="font-semibold">Import groupé des photos (5 par membre)</h2>
+        <h2 className="font-semibold">Import groupé des photos (jusqu'à 25 par membre)</h2>
         <p className="text-sm text-neutral-500">
           Un dossier (ex. « membres 1 ») contenant le fichier de données ET les photos. Chaque photo doit être nommée
-          <code> {'{prefix}'}-photo1</code> à <code>{'{prefix}'}-photo5</code>
+          <code> {'{prefix}'}-photo1</code> à <code>{'{prefix}'}-photo25</code>
           (ex. <code>jeanne_d-photo1.jpg</code>), où <code>{'{prefix}'}</code> est la colonne <code>photoPrefix</code> de la ligne,
-          ou à défaut le <code>pseudo</code> (accents, espaces et casse ignorés dans la comparaison). Au-delà de 5 photos par membre,
-          les suivantes sont ignorées.
+          ou à défaut le <code>pseudo</code> (accents, espaces et casse ignorés dans la comparaison). Les photos 1 à 5 vont dans la
+          galerie publique, les photos 6 à 25 dans la galerie privée (mêmes quotas que sur un profil : 5 publiques / 20 privées) ;
+          au-delà, les suivantes sont ignorées.
         </p>
         <label className="btn-secondary text-sm cursor-pointer inline-block">
           Choisir le dossier « membres »
