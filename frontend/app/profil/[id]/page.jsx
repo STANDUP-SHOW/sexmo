@@ -8,6 +8,7 @@ import { apiFetch, mediaUrl } from '../../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS, SEX_ROLE_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../../lib/enums';
 import { memberSinceLabel } from '../../../lib/format';
 import { PRACTICE_LABELS } from '../../../lib/practices';
+import PhotoLightbox from '../../../components/PhotoLightbox';
 
 const REPORT_REASONS = {
   FAUX_PROFIL: 'Faux profil',
@@ -30,6 +31,7 @@ export default function ProfileDetailPage() {
   const [reportReason, setReportReason] = useState('FAUX_PROFIL');
   const [reportDetails, setReportDetails] = useState('');
   const [chatPresence, setChatPresence] = useState(null); // { inChat, department } | null tant que pas encore su
+  const [lightbox, setLightbox] = useState(null); // { photos, index } | null
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -191,10 +193,11 @@ export default function ProfileDetailPage() {
       <div>
         {profile.photos.length > 0 && <h2 className="text-sm font-semibold text-neutral-700 mb-2">Galerie publique</h2>}
         <div className="grid sm:grid-cols-2 gap-2">
-          {profile.photos.length > 0 ? profile.photos.map((p) => (
-            <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden bg-neutral-200">
+          {profile.photos.length > 0 ? profile.photos.map((p, i) => (
+            <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden bg-neutral-200 cursor-pointer"
+              onClick={() => setLightbox({ photos: profile.photos, index: i })}>
               <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
-              <button onClick={() => togglePhotoLike(p.id)}
+              <button onClick={(e) => { e.stopPropagation(); togglePhotoLike(p.id); }}
                 className="absolute bottom-2 right-2 flex items-center gap-1 text-xs bg-black/60 rounded-full pl-2 pr-2.5 py-1">
                 <span className={p.likedByMe ? 'text-brand-500' : 'text-white'}>{p.likedByMe ? '♥' : '♡'}</span>
                 <span className="text-white">{p.likeCount || 0}</span>
@@ -212,7 +215,7 @@ export default function ProfileDetailPage() {
         </div>
       )}
 
-      <PrivatePhotosSection profile={profile} accessStatus={accessStatus} onRequest={requestAccess} />
+      <PrivatePhotosSection profile={profile} accessStatus={accessStatus} onRequest={requestAccess} onOpenLightbox={setLightbox} />
 
       {showReport && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center px-4 z-50">
@@ -230,19 +233,29 @@ export default function ProfileDetailPage() {
           </div>
         </div>
       )}
+
+      {lightbox && (
+        <PhotoLightbox
+          photos={lightbox.photos}
+          index={lightbox.index}
+          onIndexChange={(index) => setLightbox((l) => ({ ...l, index }))}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   );
 }
 
-function PrivatePhotosSection({ profile, accessStatus, onRequest }) {
+function PrivatePhotosSection({ profile, accessStatus, onRequest, onOpenLightbox }) {
   if (profile.hasPrivateAccess) {
     if (!profile.privatePhotos?.length) return null;
     return (
       <div>
         <h2 className="text-sm font-semibold text-neutral-700 mb-2">🔓 Galerie privée</h2>
         <div className="grid sm:grid-cols-2 gap-2">
-          {profile.privatePhotos.map((p) => (
-            <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-neutral-200">
+          {profile.privatePhotos.map((p, i) => (
+            <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-neutral-200 cursor-pointer"
+              onClick={() => onOpenLightbox({ photos: profile.privatePhotos, index: i })}>
               <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
             </div>
           ))}

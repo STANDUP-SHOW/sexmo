@@ -7,11 +7,13 @@ import { apiFetch, mediaUrl } from '../../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../../lib/enums';
 import { memberSinceLabel } from '../../../lib/format';
 import { PRACTICE_LABELS } from '../../../lib/practices';
+import PhotoLightbox from '../../../components/PhotoLightbox';
 
 export default function PublicProfilePage() {
   const { id } = useParams();
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState('');
+  const [lightbox, setLightbox] = useState(null); // { photos, index } | null
 
   useEffect(() => {
     apiFetch(`/api/public/profiles/${id}`).then((d) => setProfile(d.profile)).catch((e) => setError(e.message));
@@ -24,8 +26,9 @@ export default function PublicProfilePage() {
     <div className="max-w-xl mx-auto space-y-5">
       {profile.photos.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {profile.photos.map((p) => (
-            <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-neutral-200">
+          {profile.photos.map((p, i) => (
+            <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-neutral-200 cursor-pointer"
+              onClick={() => setLightbox({ photos: profile.photos, index: i })}>
               <img src={mediaUrl(p.url)} alt="" className="w-full h-full object-cover" />
             </div>
           ))}
@@ -76,6 +79,15 @@ export default function PublicProfilePage() {
         <p className="text-sm text-neutral-600">Créez un compte gratuit pour liker ce profil et échanger en message.</p>
         <Link href="/signup" className="btn-primary inline-block">Créer mon profil</Link>
       </div>
+
+      {lightbox && (
+        <PhotoLightbox
+          photos={lightbox.photos}
+          index={lightbox.index}
+          onIndexChange={(index) => setLightbox((l) => ({ ...l, index }))}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   );
 }
