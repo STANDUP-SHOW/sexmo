@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { apiFetch } from './api';
 
-const DEFAULTS = { siteName: 'LibertineConnect', tagline: '', logoUrl: null };
+const DEFAULTS = { siteName: 'sexmo', tagline: '', logoUrl: null };
 
 const SettingsContext = createContext(DEFAULTS);
 

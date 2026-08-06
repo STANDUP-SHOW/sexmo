@@ -59,38 +59,38 @@ export default function Header() {
           <button onClick={stopImpersonating} className="underline hover:no-underline">Retour admin</button>
         </div>
       )}
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg shrink-0">
           {logoUrl ? <img src={mediaUrl(logoUrl)} alt="" className="h-7 w-7 rounded object-cover" /> : <LogoMark />}
           <span><span className="text-brand-400">{first}</span><span className="text-white">{second}</span></span>
         </Link>
 
         {user ? (
-          <nav className="flex items-center gap-4 text-sm text-neutral-200">
+          <nav className="flex items-center gap-3 sm:gap-4 text-sm text-neutral-200">
             {user.profile && (
               <>
-                <Link href="/decouvrir" className="hover:text-brand-400">Découvrir</Link>
-                <Link href="/galerie" className="hover:text-brand-400">Galerie</Link>
+                <Link href="/decouvrir" className="hidden sm:inline hover:text-brand-400">Découvrir</Link>
+                <Link href="/galerie" className="hidden sm:inline hover:text-brand-400">Galerie</Link>
                 <Link href="/messages" className="hover:text-brand-400">Messages</Link>
-                <Link href="/profil" className="hover:text-brand-400">Mon profil</Link>
-                <Link href="/lieux" className="hover:text-brand-400">Lieux</Link>
+                <Link href="/profil" className="hidden sm:inline hover:text-brand-400">Mon profil</Link>
+                <Link href="/lieux" className="hidden md:inline hover:text-brand-400">Lieux</Link>
               </>
             )}
             <Link href="/tchat" className="hover:text-brand-400">Tchat</Link>
             {user.role === 'ADMIN' && (
-              <Link href="/admin" className="hover:text-brand-400">Back-office</Link>
+              <Link href="/admin" className="hidden md:inline hover:text-brand-400">Back-office</Link>
             )}
-            <button onClick={logout} className="bg-ink-700 hover:bg-ink-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+            <button onClick={logout} className="bg-ink-700 hover:bg-ink-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition shrink-0">
               Déconnexion
             </button>
           </nav>
         ) : (
           <nav className="flex items-center gap-3 text-sm text-neutral-200">
-            <Link href="/parcourir" className="hover:text-brand-400">Parcourir</Link>
-            <Link href="/tchat" className="hover:text-brand-400">Tchat</Link>
-            <Link href="/lieux" className="hover:text-brand-400">Lieux</Link>
+            <Link href="/parcourir" className="hidden sm:inline hover:text-brand-400">Parcourir</Link>
+            <Link href="/tchat" className="hidden sm:inline hover:text-brand-400">Tchat</Link>
+            <Link href="/lieux" className="hidden md:inline hover:text-brand-400">Lieux</Link>
             <Link href="/login" className="hover:text-brand-400">Connexion</Link>
-            <Link href="/signup" className="btn-primary text-sm px-3 py-1.5">Inscription</Link>
+            <Link href="/signup" className="btn-primary text-sm px-3 py-1.5 shrink-0">Rejoindre</Link>
           </nav>
         )}
       </div>
