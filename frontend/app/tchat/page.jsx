@@ -188,9 +188,10 @@ export default function TchatPage() {
               className="card text-center py-3 hover:border-brand-500 transition relative">
               <p className="font-bold">{d.code}</p>
               <p className="text-xs text-neutral-500 truncate">{d.name}</p>
-              {counts[d.code] > 0 && (
-                <span className="absolute top-1 right-1 text-[10px] bg-green-100 text-green-700 rounded-full px-1.5">{counts[d.code]}</span>
-              )}
+              <p className={`text-[10px] mt-1 ${counts[d.code] > 0 ? 'text-green-700 font-medium' : 'text-neutral-400'}`}>
+                {counts[d.code] > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 align-middle" />}
+                {counts[d.code] || 0} connecté(s)
+              </p>
             </button>
           ))}
         </div>
