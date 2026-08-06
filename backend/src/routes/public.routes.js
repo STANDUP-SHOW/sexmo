@@ -5,7 +5,7 @@
 const express = require('express');
 const prisma = require('../config/prisma');
 const { computeAge } = require('../utils/age');
-const { profileMatchesCity } = require('../utils/geo');
+const { profileMatchesCity, cityRadiusMatch, getCityCoords } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
 const { toPublicProfile, likeCountsFor } = require('./profiles.routes');
 
@@ -25,7 +25,7 @@ router.get('/meta', (req, res) => {
 
 router.get('/profiles', async (req, res, next) => {
   try {
-    const { city, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, adCategory, page = '1' } = req.query;
+    const { city, radiusKm, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, adCategory, page = '1' } = req.query;
     const skip = (Math.max(1, Number(page)) - 1) * PAGE_SIZE;
 
     const where = {
@@ -47,9 +47,12 @@ router.get('/profiles', async (req, res, next) => {
 
     const min = minAge ? Number(minAge) : 18;
     const max = maxAge ? Number(maxAge) : 99;
+    // radiusKm : recherche "autour de {city}" pilotée par le visiteur (carte),
+    // indépendante du réglage de géolocalisation du profil lui-même.
     const filtered = candidates.filter((p) => {
       const age = computeAge(p.user.birthDate);
-      return age >= min && age <= max && profileMatchesCity(p, city);
+      const matchesCity = radiusKm ? cityRadiusMatch(p, city, Number(radiusKm)) : profileMatchesCity(p, city);
+      return age >= min && age <= max && matchesCity;
     });
 
     const page1 = filtered.slice(skip, skip + PAGE_SIZE);
@@ -61,6 +64,31 @@ router.get('/profiles', async (req, res, next) => {
       page: Number(page),
       pageSize: PAGE_SIZE,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Pour le bloc carte interactive : coordonnées résolues côté serveur (même
+// base que le comptage, pour que la pastille et le chiffre affiché soient
+// toujours cohérents) + nombre de profils visibles dans le rayon choisi.
+router.get('/map-stats', async (req, res, next) => {
+  try {
+    const { city, radiusKm = '50' } = req.query;
+    if (!city) return res.status(400).json({ error: 'Ville requise' });
+
+    const center = getCityCoords(city);
+    if (!center) return res.status(404).json({ error: 'Ville inconnue' });
+
+    const candidates = await prisma.profile.findMany({
+      where: { visible: true },
+      select: { id: true, city: true },
+      take: 5000,
+    });
+    const radius = Number(radiusKm);
+    const count = candidates.filter((p) => cityRadiusMatch(p, city, radius)).length;
+
+    res.json({ city, lat: center.lat, lng: center.lng, radiusKm: radius, count });
   } catch (err) {
     next(err);
   }

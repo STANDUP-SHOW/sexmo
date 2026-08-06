@@ -1,20 +1,21 @@
 const FRENCH_CITIES = require('../data/frenchCities');
 const CITY_TO_DEPARTMENT = require('../data/cityToDepartment.json');
+const CITY_TO_COORDS = require('../data/cityToCoords.json');
 
 const CITY_COORDS = new Map(
   FRENCH_CITIES.map((c) => [c.name.trim().toLowerCase(), { lat: c.lat, lng: c.lng }])
 );
-
-function getCityCoords(cityName) {
-  if (!cityName) return null;
-  return CITY_COORDS.get(cityName.trim().toLowerCase()) || null;
-}
 
 function normalizeCityKey(name) {
   return String(name || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .trim();
+}
+
+function getCityCoords(cityName) {
+  if (!cityName) return null;
+  return CITY_COORDS.get(cityName.trim().toLowerCase()) || CITY_TO_COORDS[normalizeCityKey(cityName)] || null;
 }
 
 // Code département (2-3 chiffres) pour une ville donnée, utilisé pour
@@ -82,4 +83,22 @@ function profileMatchesCity(profile, cityFilter) {
   return haversineKm(profile.latitude, profile.longitude, target.lat, target.lng) <= profile.radiusKm;
 }
 
-module.exports = { getCityCoords, approximateDistanceKm, haversineKm, nearestCity, profileMatchesCity, departmentForCity };
+// Recherche "autour de {ville}, {rayon} km" pilotée par le visiteur (carte
+// interactive) — indépendante du réglage "useGeolocation" du profil, qui lui
+// ne sert qu'à l'annonce du membre lui-même. Se base sur la ville déclarée
+// du profil (résolue via la base des 34 000+ communes), pas sur une position
+// GPS en temps réel.
+function cityRadiusMatch(profile, cityFilter, radiusKm) {
+  if (!cityFilter) return true;
+  if (!radiusKm) return profile.city === cityFilter;
+  if (profile.city === cityFilter) return true;
+  const center = getCityCoords(cityFilter);
+  const point = getCityCoords(profile.city);
+  if (!center || !point) return false;
+  return haversineKm(center.lat, center.lng, point.lat, point.lng) <= radiusKm;
+}
+
+module.exports = {
+  getCityCoords, approximateDistanceKm, haversineKm, nearestCity,
+  profileMatchesCity, departmentForCity, cityRadiusMatch,
+};

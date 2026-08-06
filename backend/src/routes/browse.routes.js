@@ -2,7 +2,7 @@ const express = require('express');
 const prisma = require('../config/prisma');
 const { requireAuth, requireProfile } = require('../middleware/auth');
 const { computeAge } = require('../utils/age');
-const { profileMatchesCity } = require('../utils/geo');
+const { profileMatchesCity, cityRadiusMatch } = require('../utils/geo');
 const FRENCH_CITIES = require('../data/frenchCities');
 const { toPublicProfile, likeCountsFor } = require('./profiles.routes');
 
@@ -20,7 +20,7 @@ router.get('/meta', (req, res) => {
 
 router.get('/', requireAuth, requireProfile, async (req, res, next) => {
   try {
-    const { city, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, adCategory, page = '1' } = req.query;
+    const { city, radiusKm, gender, orientation, minAge, maxAge, bodyType, eyeColor, available, adCategory, page = '1' } = req.query;
     const pageSize = 24;
     const skip = (Math.max(1, Number(page)) - 1) * pageSize;
 
@@ -56,7 +56,8 @@ router.get('/', requireAuth, requireProfile, async (req, res, next) => {
 
     const filtered = candidates.filter((p) => {
       const age = computeAge(p.user.birthDate);
-      return age >= min && age <= max && profileMatchesCity(p, city);
+      const matchesCity = radiusKm ? cityRadiusMatch(p, city, Number(radiusKm)) : profileMatchesCity(p, city);
+      return age >= min && age <= max && matchesCity;
     });
 
     const page1 = filtered.slice(skip, skip + pageSize);

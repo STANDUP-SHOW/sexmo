@@ -7,14 +7,14 @@ import { useAuth } from '../../lib/AuthContext';
 import { apiFetch } from '../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
-import CityAutocomplete from '../../components/CityAutocomplete';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
+import MapSearchBlock from '../../components/MapSearchBlock';
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [meta, setMeta] = useState({ cities: [], genders: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: '', gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [filters, setFilters] = useState({ city: '', radiusKm: 50, gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
   const [matchNotice, setMatchNotice] = useState(null);
 
@@ -56,12 +56,13 @@ export default function DiscoverPage() {
     <div>
       <h1 className="text-2xl font-bold mb-4">Découvrir</h1>
 
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div className="w-40">
-          <CityAutocomplete className="input w-40" placeholder="Ville"
-            value={filters.city} onChange={(city) => setFilters({ ...filters, city })} />
-        </div>
+      <div className="mb-6">
+        <MapSearchBlock city={filters.city} radiusKm={filters.radiusKm}
+          onCityChange={(city) => setFilters({ ...filters, city })}
+          onRadiusChange={(radiusKm) => setFilters({ ...filters, radiusKm })} />
+      </div>
 
+      <div className="flex flex-wrap gap-3 mb-6">
         <select className="input w-48" value={filters.gender} onChange={(e) => setFilters({ ...filters, gender: e.target.value })}>
           <option value="">Tous profils</option>
           {meta.genders.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}

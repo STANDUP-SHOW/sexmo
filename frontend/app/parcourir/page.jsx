@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { apiFetch } from '../../lib/api';
 import { GENDER_LABELS, ORIENTATION_LABELS, BODY_TYPE_LABELS, EYE_COLOR_LABELS, AD_CATEGORY_LABELS, EXPERIENCE_LEVEL_LABELS } from '../../lib/enums';
 import { memberSinceLabel } from '../../lib/format';
-import CityAutocomplete from '../../components/CityAutocomplete';
 import ProfileCardPhotos from '../../components/ProfileCardPhotos';
+import MapSearchBlock from '../../components/MapSearchBlock';
 
 export default function ParcourirPage() {
   return (
@@ -20,7 +20,7 @@ export default function ParcourirPage() {
 function ParcourirPageInner() {
   const searchParams = useSearchParams();
   const [meta, setMeta] = useState({ cities: [], orientations: [], bodyTypes: [], eyeColors: [], adCategories: [] });
-  const [filters, setFilters] = useState({ city: searchParams.get('city') || '', gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
+  const [filters, setFilters] = useState({ city: searchParams.get('city') || '', radiusKm: 50, gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
@@ -53,11 +53,13 @@ function ParcourirPageInner() {
         Aperçu public, sans compte. <Link href="/signup" className="text-brand-600 hover:text-brand-700">Créez un profil</Link> pour liker et échanger en message.
       </p>
 
+      <div className="mb-6">
+        <MapSearchBlock city={filters.city} radiusKm={filters.radiusKm}
+          onCityChange={(city) => setFilters({ ...filters, city })}
+          onRadiusChange={(radiusKm) => setFilters({ ...filters, radiusKm })} />
+      </div>
+
       <div className="flex flex-wrap gap-3 mb-6">
-        <div className="w-40">
-          <CityAutocomplete className="input w-40" placeholder="Ville"
-            value={filters.city} onChange={(city) => setFilters({ ...filters, city })} />
-        </div>
         <select className="input w-40" value={filters.gender} onChange={(e) => setFilters({ ...filters, gender: e.target.value })}>
           <option value="">Tous profils</option>
           {Object.entries(GENDER_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
