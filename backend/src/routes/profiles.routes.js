@@ -8,6 +8,7 @@ const { computeProfileQuality } = require('../utils/profileQuality');
 const { ALL_PRACTICE_KEYS } = require('../constants/practices');
 const { nearestCity, departmentForCity } = require('../utils/geo');
 const { isOnline } = require('../state/onlinePresence');
+const { isValidSlugFormat, isReservedSlug } = require('../utils/slug');
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -27,6 +28,10 @@ async function likeCountsFor(profileIds) {
 
 const updateSchema = z.object({
   pseudo: z.string().min(2).max(30).optional(),
+  // URL de profil personnalisée (sexmo.fr/<slug>) — chaîne vide = suppression
+  // du slug (retour à /profil/<id>). Format/réserve/unicité vérifiés à part
+  // dans le handler pour renvoyer des messages d'erreur explicites.
+  slug: z.string().max(30).nullable().optional(),
   gender: z.enum(['HOMME', 'FEMME', 'COUPLE_HOMME_FEMME', 'COUPLE_HOMME_HOMME', 'COUPLE_FEMME_FEMME', 'TRANS', 'NON_BINAIRE', 'AUTRE']).optional(),
   orientation: z.enum(['HETERO', 'HOMO', 'BI', 'CURIEUX', 'PANSEXUEL', 'AUTRE']).optional(),
   sexRole: z.enum(['ACTIF', 'PASSIF', 'VERSA']).nullable().optional(),
@@ -54,6 +59,25 @@ const updateSchema = z.object({
 router.patch('/me', requireAuth, requireProfile, async (req, res, next) => {
   try {
     const data = updateSchema.parse(req.body);
+
+    if (data.slug !== undefined) {
+      const raw = (data.slug || '').trim().toLowerCase();
+      if (raw === '') {
+        data.slug = null;
+      } else {
+        if (!isValidSlugFormat(raw)) {
+          return res.status(400).json({ error: 'URL invalide : 3 à 30 caractères, lettres minuscules, chiffres et tirets uniquement (pas de tiret au début/à la fin).' });
+        }
+        if (isReservedSlug(raw)) {
+          return res.status(400).json({ error: 'Cette URL est réservée, choisissez-en une autre.' });
+        }
+        const taken = await prisma.profile.findUnique({ where: { slug: raw } });
+        if (taken && taken.userId !== req.user.id) {
+          return res.status(400).json({ error: 'Cette URL est déjà prise, choisissez-en une autre.' });
+        }
+        data.slug = raw;
+      }
+    }
 
     // Géolocalisation activée avec une position fraîche : la ville et la
     // région sont recalculées automatiquement vers la ville connue la plus
@@ -87,6 +111,7 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
   const result = {
     id: profile.id,
     pseudo: profile.pseudo,
+    slug: profile.slug,
     gender: profile.gender,
     orientation: profile.orientation,
     seeking: profile.seeking,
@@ -135,6 +160,20 @@ function toPublicProfile(profile, ownerBirthDate, options = {}) {
 
   return result;
 }
+
+// Vérification en direct pendant la saisie (sexmo.fr/<slug>), avant
+// enregistrement via PATCH /me qui refait de toute façon la même validation.
+router.get('/me/slug-available/:slug', requireAuth, requireProfile, async (req, res, next) => {
+  try {
+    const raw = req.params.slug.trim().toLowerCase();
+    if (!isValidSlugFormat(raw)) return res.json({ available: false, reason: 'format' });
+    if (isReservedSlug(raw)) return res.json({ available: false, reason: 'reserved' });
+    const taken = await prisma.profile.findUnique({ where: { slug: raw } });
+    res.json({ available: !taken || taken.userId === req.user.id, reason: taken && taken.userId !== req.user.id ? 'taken' : null });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get('/me/quality', requireAuth, requireProfile, async (req, res, next) => {
   try {

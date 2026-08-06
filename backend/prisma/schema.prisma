@@ -151,6 +151,9 @@ model Profile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   pseudo      String
+  // URL de profil personnalisée façon "Facebook pages" (sexmo.fr/<slug>),
+  // optionnelle — voir utils/slug.js pour le format et les mots réservés.
+  slug        String?     @unique @db.VarChar(30)
   gender      Gender
   orientation Orientation
   // Genres recherchés par ce profil (filtre de découverte)

@@ -106,6 +106,18 @@ router.get('/map-stats', async (req, res, next) => {
   }
 });
 
+// Résolution d'une URL personnalisée (sexmo.fr/<slug>) vers l'id du profil —
+// le frontend redirige ensuite vers la fiche appropriée selon la connexion.
+router.get('/profiles/slug/:slug', async (req, res, next) => {
+  try {
+    const profile = await prisma.profile.findUnique({ where: { slug: req.params.slug.toLowerCase() } });
+    if (!profile || !profile.visible) return res.status(404).json({ error: 'Profil introuvable' });
+    res.json({ id: profile.id, pseudo: profile.pseudo });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/profiles/:id', async (req, res, next) => {
   try {
     const profile = await prisma.profile.findUnique({

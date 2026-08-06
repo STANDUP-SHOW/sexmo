@@ -23,6 +23,10 @@ export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [bio, setBio] = useState('');
+  const [slug, setSlug] = useState('');
+  const [savedSlug, setSavedSlug] = useState('');
+  const [slugStatus, setSlugStatus] = useState(null); // null | 'checking' | 'available' | 'taken' | 'invalid' | 'reserved'
+  const [slugSaving, setSlugSaving] = useState(false);
   const [city, setCity] = useState('');
   const [interestsText, setInterestsText] = useState('');
   const [practices, setPractices] = useState([]);
@@ -75,6 +79,8 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     setBio(user.profile?.bio || '');
+    setSlug(user.profile?.slug || '');
+    setSavedSlug(user.profile?.slug || '');
     setCity(user.profile?.city || '');
     setInterestsText((user.profile?.interests || []).join(', '));
     setPractices(user.profile?.practices || []);
@@ -97,6 +103,22 @@ export default function ProfilePage() {
     refreshRequests();
     refreshLikesAndMatches();
   }, [user]);
+
+  // Vérification de disponibilité en direct (debounce) pendant la saisie de
+  // l'URL personnalisée, avant l'enregistrement effectif.
+  useEffect(() => {
+    const trimmed = slug.trim().toLowerCase();
+    if (trimmed === savedSlug) { setSlugStatus(null); return; }
+    if (trimmed.length === 0) { setSlugStatus(null); return; }
+    if (trimmed.length < 3) { setSlugStatus('invalid'); return; }
+    setSlugStatus('checking');
+    const t = setTimeout(() => {
+      apiFetch(`/api/profiles/me/slug-available/${encodeURIComponent(trimmed)}`)
+        .then((d) => setSlugStatus(d.available ? 'available' : (d.reason || 'taken')))
+        .catch(() => setSlugStatus('invalid'));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [slug, savedSlug]);
 
   if (!user) return null;
 
@@ -180,6 +202,22 @@ export default function ProfilePage() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const saveSlug = async () => {
+    const trimmed = slug.trim().toLowerCase();
+    setSlugSaving(true);
+    setError('');
+    try {
+      const { profile } = await apiFetch('/api/profiles/me', { method: 'PATCH', body: JSON.stringify({ slug: trimmed }) });
+      setSlug(profile.slug || '');
+      setSavedSlug(profile.slug || '');
+      setSlugStatus(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSlugSaving(false);
     }
   };
 
@@ -311,7 +349,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <Link href={`/profil/${user.profile?.id}`} className="btn-primary w-full text-center block">
+      <Link href={savedSlug ? `/${savedSlug}` : `/profil/${user.profile?.id}`} className="btn-primary w-full text-center block">
         Voir mon profil public
       </Link>
 
@@ -328,6 +366,27 @@ export default function ProfilePage() {
           {available ? 'Disponible pour discuter' : 'Se déclarer disponible'}
         </button>
       </div>
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">URL de profil personnalisée</h2>
+        <p className="text-sm text-neutral-500">
+          Choisissez une adresse facile à partager, façon page Facebook (ex. <code>sexmo.fr/paulabi</code>).
+          Sans URL choisie, votre profil reste accessible via <code>sexmo.fr/profil/{user.profile?.id}</code>.
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-neutral-400 shrink-0">sexmo.fr/</span>
+          <input className="input" placeholder="paulabi" maxLength={30}
+            value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} />
+          <button className="btn-secondary shrink-0" disabled={slugSaving || slugStatus !== 'available'} onClick={saveSlug}>
+            {slugSaving ? 'Enregistrement...' : 'Valider'}
+          </button>
+        </div>
+        {slugStatus === 'checking' && <p className="text-xs text-neutral-500">Vérification...</p>}
+        {slugStatus === 'available' && <p className="text-xs text-green-600">Disponible !</p>}
+        {slugStatus === 'taken' && <p className="text-xs text-red-600">Déjà pris, choisissez-en une autre.</p>}
+        {slugStatus === 'reserved' && <p className="text-xs text-red-600">Cette URL est réservée.</p>}
+        {slugStatus === 'invalid' && <p className="text-xs text-red-600">3 à 30 caractères : lettres minuscules, chiffres, tirets.</p>}
+      </section>
 
       <section className="card space-y-4">
         <h2 className="font-semibold">Informations</h2>
