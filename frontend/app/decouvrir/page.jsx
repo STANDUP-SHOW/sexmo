@@ -19,6 +19,8 @@ export default function DiscoverPage() {
   const [filters, setFilters] = useState({ gender: '', orientation: '', minAge: '', maxAge: '', bodyType: '', eyeColor: '', adCategory: '', available: false });
   const [profiles, setProfiles] = useState([]);
   const [matchNotice, setMatchNotice] = useState(null);
+  const [likedIds, setLikedIds] = useState(new Set());
+  const [likeError, setLikeError] = useState('');
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -49,8 +51,14 @@ export default function DiscoverPage() {
   }, [user, ready]);
 
   const like = async (profileId) => {
-    const res = await apiFetch(`/api/likes/${profileId}`, { method: 'POST' });
-    if (res.matched) setMatchNotice(res);
+    setLikeError('');
+    try {
+      const res = await apiFetch(`/api/likes/${profileId}`, { method: 'POST' });
+      setLikedIds((s) => new Set(s).add(profileId));
+      if (res.matched) setMatchNotice(res);
+    } catch (err) {
+      setLikeError(err.message);
+    }
   };
 
   if (!user) return null;
@@ -105,24 +113,36 @@ export default function DiscoverPage() {
           <Link href="/messages" className="btn-primary text-sm" onClick={() => setMatchNotice(null)}>Voir la conversation</Link>
         </div>
       )}
+      {likeError && <p className="text-sm text-red-600 mb-4">{likeError}</p>}
 
       <div className="grid sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {profiles.map((p) => (
-          <div key={p.id} className="card p-0 overflow-hidden">
-            <Link href={`/profil/${p.id}`}>
-              <ProfileCardPhotos photos={p.photos} available={p.available} />
-            </Link>
-            <div className="p-3">
-              <p className="font-medium">{p.pseudo}, {p.age ?? '—'} {p.experienceLevel && <span className="text-sm">{EXPERIENCE_LEVEL_LABELS[p.experienceLevel]}</span>}</p>
-              <p className="text-xs text-neutral-500">{p.city} · {GENDER_LABELS[p.gender]}</p>
-              {p.adCategory && <p className="text-xs text-brand-600">{AD_CATEGORY_LABELS[p.adCategory]}</p>}
-              {p.memberSinceDays != null && (
-                <p className="text-[11px] text-neutral-600">{memberSinceLabel(p.memberSinceDays)}</p>
-              )}
-              <button onClick={() => like(p.id)} className="btn-secondary text-xs mt-2 w-full">J'aime</button>
+        {profiles.map((p) => {
+          const liked = likedIds.has(p.id);
+          return (
+            <div key={p.id} className="card p-0 overflow-hidden">
+              <Link href={`/profil/${p.id}`}>
+                <ProfileCardPhotos photos={p.photos} available={p.available} />
+              </Link>
+              <div className="p-3">
+                <p className="font-medium">{p.pseudo}, {p.age ?? '—'} {p.experienceLevel && <span className="text-sm">{EXPERIENCE_LEVEL_LABELS[p.experienceLevel]}</span>}</p>
+                <p className="text-xs text-neutral-500">{p.city} · {GENDER_LABELS[p.gender]}</p>
+                {p.adCategory && <p className="text-xs text-brand-600">{AD_CATEGORY_LABELS[p.adCategory]}</p>}
+                {p.memberSinceDays != null && (
+                  <p className="text-[11px] text-neutral-600">{memberSinceLabel(p.memberSinceDays)}</p>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <Link href={`/profil/${p.id}`} className="btn-secondary text-xs flex-1 text-center">Voir profil</Link>
+                  <button onClick={() => like(p.id)} disabled={liked}
+                    className={liked
+                      ? 'text-xs flex-1 rounded-lg py-2 px-3 font-medium bg-brand-50 text-brand-600 border border-brand-200 cursor-default'
+                      : 'btn-primary text-xs flex-1'}>
+                    {liked ? '♥ Aimé' : "♡ J'aime"}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {profiles.length === 0 && <p className="text-neutral-500 col-span-full">Aucun profil ne correspond à ces critères.</p>}
       </div>
     </div>
