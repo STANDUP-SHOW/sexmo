@@ -122,9 +122,14 @@ export default function MessagesPage() {
 
   const activeId = amis.find((a) => a.conversationId === selectedConversationId)?.id ?? null;
 
+  // Sur mobile, une seule colonne à la fois (liste OU conversation), avec un
+  // bouton retour — sinon les deux colonnes côte à côte débordent du
+  // viewport. À partir de sm:, retour au layout à deux colonnes classique.
   return (
-    <div className="h-[75vh] flex gap-4">
-      <div className="w-72 shrink-0 border border-neutral-200 rounded-xl p-3 space-y-4 overflow-y-auto">
+    <div className="h-[75vh] flex flex-col sm:flex-row gap-4">
+      <div className={`w-full sm:w-72 shrink-0 border border-neutral-200 rounded-xl p-3 space-y-4 overflow-y-auto ${
+        selectedConversationId ? 'hidden sm:block' : 'block'
+      }`}>
         <h1 className="text-lg font-bold px-1">Messages</h1>
         {notice && <p className="text-xs text-red-600 px-1">{notice}</p>}
         <CategorySection title="Amis" members={amis} activeId={activeId} onSelect={selectAmi} />
@@ -135,9 +140,19 @@ export default function MessagesPage() {
         )}
       </div>
 
-      <div className="flex-1 border border-neutral-200 rounded-xl p-4 min-w-0">
+      <div className={`flex-1 border border-neutral-200 rounded-xl p-4 min-w-0 flex-col ${
+        selectedConversationId ? 'flex' : 'hidden sm:flex'
+      }`}>
         {selectedConversationId ? (
-          <ConversationThread conversationId={selectedConversationId} />
+          <>
+            <button type="button" onClick={() => setSelectedConversationId(null)}
+              className="sm:hidden self-start mb-2 text-sm text-neutral-500 hover:text-brand-600 flex items-center gap-1">
+              ← Retour aux messages
+            </button>
+            <div className="flex-1 min-h-0">
+              <ConversationThread conversationId={selectedConversationId} />
+            </div>
+          </>
         ) : (
           <div className="h-full flex items-center justify-center text-sm text-neutral-400">
             Sélectionnez un contact hors ligne pour ouvrir la conversation, ou un contact en ligne pour rejoindre le tchat direct.
